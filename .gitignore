@@ -1,0 +1,59 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+venv/
+env/
+.env
+.env.local
+.env.*.local
+
+# Production builds
+dist/
+build/
+*.tsbuildinfo
+
+# Mobile/Expo
+.expo/
+.expo-shared/
+dist/
+npm-debug.*
+.DS_Store
+*.pem
+
+# Backend
+backend/uploads/
+backend/node_modules/
+backend/.env
+
+# ML Model
+ml-model/venv/
+ml-model/__pycache__/
+ml-model/*.pyc
+ml-model/.pytest_cache/
+ml-model/models/*.pkl
+ml-model/data/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Misc
+.cache/
+.watchman-cookie-*
+.turbo/
+
+# ZIPs
+*.zip
