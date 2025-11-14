@@ -1,53 +1,42 @@
 const mongoose = require('mongoose');
 
 const surfSpotSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: true,
-    unique: true
-  },
-  location: {
-    type: String,
-    required: true
-  },
+  name: { type: String, required: true, unique: true },
+  location: { type: String, required: true },
   coordinates: {
-    latitude: {
-      type: Number,
-      required: true
+    latitude: { type: Number, required: true },
+    longitude: { type: Number, required: true }
+  },
+  // Overall risk (for general display)
+  riskScore: { type: Number, default: 0, min: 0, max: 10 },
+  riskLevel: { type: String, enum: ['Low', 'Medium', 'High'], default: 'Low' },
+  flagColor: { type: String, enum: ['green', 'yellow', 'red'], default: 'green' },
+  
+  // Skill-specific risks
+  skillLevelRisks: {
+    beginner: {
+      incidents: { type: Number, default: 0 },
+      riskScore: { type: Number, default: 0, min: 0, max: 10 },
+      riskLevel: { type: String, enum: ['Low', 'Medium', 'High'], default: 'Low' },
+      flagColor: { type: String, enum: ['green', 'yellow', 'red'], default: 'green' }
     },
-    longitude: {
-      type: Number,
-      required: true
+    intermediate: {
+      incidents: { type: Number, default: 0 },
+      riskScore: { type: Number, default: 0, min: 0, max: 10 },
+      riskLevel: { type: String, enum: ['Low', 'Medium', 'High'], default: 'Low' },
+      flagColor: { type: String, enum: ['green', 'yellow', 'red'], default: 'green' }
+    },
+    advanced: {
+      incidents: { type: Number, default: 0 },
+      riskScore: { type: Number, default: 0, min: 0, max: 10 },
+      riskLevel: { type: String, enum: ['Low', 'Medium', 'High'], default: 'Low' },
+      flagColor: { type: String, enum: ['green', 'yellow', 'red'], default: 'green' }
     }
   },
-  riskScore: {
-    type: Number,
-    default: 0,
-    min: 0,
-    max: 10
-  },
-  riskLevel: {
-    type: String,
-    enum: ['Low', 'Medium', 'High'],
-    default: 'Low'
-  },
-  flagColor: {
-    type: String,
-    enum: ['green', 'yellow', 'red'],
-    default: 'green'
-  },
-  lastUpdated: {
-    type: Date,
-    default: Date.now
-  },
-  totalIncidents: {
-    type: Number,
-    default: 0
-  },
-  recentHazards: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'HazardReport'
-  }],
+  
+  lastUpdated: { type: Date, default: Date.now },
+  totalIncidents: { type: Number, default: 0 },
+  recentHazards: [{ type: mongoose.Schema.Types.ObjectId, ref: 'HazardReport' }],
   historicalData: {
     seasonalPatterns: mongoose.Schema.Types.Mixed,
     commonHazards: [String],
@@ -55,9 +44,7 @@ const surfSpotSchema = new mongoose.Schema({
   }
 });
 
-// Method to calculate risk score
 surfSpotSchema.methods.calculateRiskScore = function() {
-  // This will be updated by ML model predictions
   if (this.riskScore <= 3.3) {
     this.riskLevel = 'Low';
     this.flagColor = 'green';
