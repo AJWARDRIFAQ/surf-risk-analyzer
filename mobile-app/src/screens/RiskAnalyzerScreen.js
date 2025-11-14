@@ -16,7 +16,7 @@ export default function RiskAnalyzerScreen({ navigation }) {
   const [surfSpots, setSurfSpots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedSkillLevel, setSelectedSkillLevel] = useState('overall'); // 'overall', 'beginner', 'intermediate', 'advanced'
+  const [selectedSkillLevel, setSelectedSkillLevel] = useState('overall');
 
   useEffect(() => {
     loadSurfSpots();
@@ -59,7 +59,6 @@ export default function RiskAnalyzerScreen({ navigation }) {
     }
   };
 
-  // Get risk data based on selected skill level
   const getRiskData = (spot) => {
     if (selectedSkillLevel === 'overall') {
       return {
@@ -149,9 +148,6 @@ export default function RiskAnalyzerScreen({ navigation }) {
                     </Text>
                     <Text>{getFlagEmoji(riskData.flag)} {riskData.level}</Text>
                     <Text>Score: {riskData.score}/10</Text>
-                    {selectedSkillLevel !== 'overall' && (
-                      <Text style={styles.calloutIncidents}>Incidents: {riskData.incidents}</Text>
-                    )}
                   </View>
                 </Callout>
               </Marker>
@@ -189,23 +185,24 @@ export default function RiskAnalyzerScreen({ navigation }) {
               <View style={styles.spotHeader}>
                 <View style={styles.spotInfo}>
                   <Text style={styles.spotName}>
-                    {getFlagEmoji(riskData.flag)} {spot.name}
+                    {selectedSkillLevel !== 'overall' && getFlagEmoji(riskData.flag)} {spot.name}
                   </Text>
                   <Text style={styles.spotLocation}>{spot.location}</Text>
                   
-                  <View style={[
-                    styles.riskBadge,
-                    { backgroundColor: riskData.level === 'High' ? '#fee2e2' : riskData.level === 'Medium' ? '#fef3c7' : '#d1fae5' }
-                  ]}>
-                    <Text style={[
-                      styles.riskBadgeText,
-                      { color: riskData.level === 'High' ? '#991b1b' : riskData.level === 'Medium' ? '#92400e' : '#065f46' }
+                  {selectedSkillLevel !== 'overall' && (
+                    <View style={[
+                      styles.riskBadge,
+                      { backgroundColor: riskData.level === 'High' ? '#fee2e2' : riskData.level === 'Medium' ? '#fef3c7' : '#d1fae5' }
                     ]}>
-                      {riskData.level} Risk
-                    </Text>
-                  </View>
+                      <Text style={[
+                        styles.riskBadgeText,
+                        { color: riskData.level === 'High' ? '#991b1b' : riskData.level === 'Medium' ? '#92400e' : '#065f46' }
+                      ]}>
+                        {riskData.level} Risk
+                      </Text>
+                    </View>
+                  )}
 
-                  {/* Show all skill levels if overall is selected */}
                   {selectedSkillLevel === 'overall' && spot.skillLevelRisks && (
                     <View style={styles.skillBreakdown}>
                       <Text style={styles.skillBreakdownTitle}>By Skill Level:</Text>
@@ -229,14 +226,6 @@ export default function RiskAnalyzerScreen({ navigation }) {
               </View>
 
               <View style={styles.spotFooter}>
-                {selectedSkillLevel !== 'overall' && (
-                  <Text style={styles.footerText}>
-                    Incidents ({selectedSkillLevel}): {riskData.incidents}
-                  </Text>
-                )}
-                <Text style={styles.footerText}>
-                  Total Incidents: {spot.totalIncidents || 0}
-                </Text>
                 <Text style={styles.footerText}>
                   Updated: {new Date(spot.lastUpdated).toLocaleDateString()}
                 </Text>
@@ -291,7 +280,6 @@ const styles = StyleSheet.create({
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { marginTop: 16, color: '#6b7280' },
   
-  // Skill Selector Styles
   skillSelector: { 
     backgroundColor: 'white', 
     paddingVertical: 12, 
@@ -334,7 +322,6 @@ const styles = StyleSheet.create({
   callout: { padding: 8, minWidth: 150 },
   calloutTitle: { fontWeight: 'bold', fontSize: 16, marginBottom: 4 },
   calloutSkill: { fontSize: 12, color: '#6b7280', marginBottom: 4 },
-  calloutIncidents: { fontSize: 11, color: '#9ca3af', marginTop: 4 },
   
   listContainer: { flex: 1, padding: 16 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
