@@ -1,474 +1,136 @@
-import { Alert } from 'react-native';
-import { 
-  VALIDATION, 
-  ERROR_MESSAGES, 
-  RISK_LEVELS,
-  SEVERITY_LEVELS 
-} from './constants';
+// ... (keep existing helpers)
+
+import { SKILL_RISK_THRESHOLDS } from './constants';
+
+// ==================== SKILL-SPECIFIC RISK HELPERS ====================
 
 /**
- * Utility Helper Functions
- * Collection of reusable helper functions for the app
+ * Get risk level from score based on skill level
+ * @param {number} score - Risk score (0-10)
+ * @param {string} skillLevel - 'beginner', 'intermediate', 'advanced', or 'overall'
+ * @returns {object} Risk level details
  */
-
-// ==================== VALIDATION HELPERS ====================
-
-/**
- * Validate email address
- */
-export const validateEmail = (email) => {
-  if (!email) {
-    return { valid: false, message: ERROR_MESSAGES.REQUIRED_FIELD };
+export const getRiskLevelForSkill = (score, skillLevel = 'overall') => {
+  const thresholds = SKILL_RISK_THRESHOLDS[skillLevel] || SKILL_RISK_THRESHOLDS.overall;
+  
+  let level, color, bgColor, textColor, flag, emoji;
+  
+  if (score <= thresholds.low) {
+    level = 'Low';
+    color = '#10b981';
+    bgColor = '#d1fae5';
+    textColor = '#065f46';
+    flag = 'green';
+    emoji = '🟢';
+  } else if (score <= thresholds.medium) {
+    level = 'Medium';
+    color = '#f59e0b';
+    bgColor = '#fef3c7';
+    textColor = '#92400e';
+    flag = 'yellow';
+    emoji = '🟡';
+  } else {
+    level = 'High';
+    color = '#ef4444';
+    bgColor = '#fee2e2';
+    textColor = '#991b1b';
+    flag = 'red';
+    emoji = '🔴';
   }
   
-  if (!VALIDATION.EMAIL_REGEX.test(email)) {
-    return { valid: false, message: ERROR_MESSAGES.INVALID_EMAIL };
-  }
-  
-  return { valid: true };
+  return { level, color, bgColor, textColor, flag, emoji, score };
 };
 
 /**
- * Validate password
+ * Get flag color from risk score based on skill level
+ * @param {number} score - Risk score (0-10)
+ * @param {string} skillLevel - 'beginner', 'intermediate', 'advanced', or 'overall'
+ * @returns {string} Flag color
  */
-export const validatePassword = (password) => {
-  if (!password) {
-    return { valid: false, message: ERROR_MESSAGES.REQUIRED_FIELD };
-  }
+export const getFlagColorForSkill = (score, skillLevel = 'overall') => {
+  const thresholds = SKILL_RISK_THRESHOLDS[skillLevel] || SKILL_RISK_THRESHOLDS.overall;
   
-  if (password.length < VALIDATION.PASSWORD_MIN_LENGTH) {
-    return { valid: false, message: ERROR_MESSAGES.PASSWORD_TOO_SHORT };
-  }
-  
-  return { valid: true };
-};
-
-/**
- * Validate name
- */
-export const validateName = (name) => {
-  if (!name || name.trim().length < VALIDATION.NAME_MIN_LENGTH) {
-    return { valid: false, message: 'Name must be at least 2 characters' };
-  }
-  
-  return { valid: true };
-};
-
-/**
- * Validate description
- */
-export const validateDescription = (description) => {
-  if (!description || description.trim().length < VALIDATION.DESCRIPTION_MIN_LENGTH) {
-    return { 
-      valid: false, 
-      message: `Description must be at least ${VALIDATION.DESCRIPTION_MIN_LENGTH} characters` 
-    };
-  }
-  
-  if (description.length > VALIDATION.DESCRIPTION_MAX_LENGTH) {
-    return { 
-      valid: false, 
-      message: `Description cannot exceed ${VALIDATION.DESCRIPTION_MAX_LENGTH} characters` 
-    };
-  }
-  
-  return { valid: true };
-};
-
-// ==================== DATE/TIME HELPERS ====================
-
-/**
- * Format date to readable string
- */
-export const formatDate = (dateString, format = 'full') => {
-  const date = new Date(dateString);
-  
-  if (isNaN(date.getTime())) {
-    return 'Invalid date';
-  }
-  
-  const options = {
-    full: { year: 'numeric', month: 'long', day: 'numeric' },
-    short: { year: 'numeric', month: 'short', day: 'numeric' },
-    time: { hour: '2-digit', minute: '2-digit' },
-    datetime: { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric',
-      hour: '2-digit', 
-      minute: '2-digit' 
-    },
-  };
-  
-  return date.toLocaleDateString('en-US', options[format] || options.full);
-};
-
-/**
- * Get relative time (e.g., "2 hours ago")
- */
-export const getRelativeTime = (dateString) => {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now - date;
-  
-  const diffSeconds = Math.floor(diffMs / 1000);
-  const diffMinutes = Math.floor(diffSeconds / 60);
-  const diffHours = Math.floor(diffMinutes / 60);
-  const diffDays = Math.floor(diffHours / 24);
-  const diffWeeks = Math.floor(diffDays / 7);
-  const diffMonths = Math.floor(diffDays / 30);
-  
-  if (diffSeconds < 60) return 'Just now';
-  if (diffMinutes < 60) return `${diffMinutes}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  if (diffWeeks < 4) return `${diffWeeks}w ago`;
-  if (diffMonths < 12) return `${diffMonths}mo ago`;
-  
-  return formatDate(dateString, 'short');
-};
-
-/**
- * Check if date is today
- */
-export const isToday = (dateString) => {
-  const date = new Date(dateString);
-  const today = new Date();
-  
-  return date.toDateString() === today.toDateString();
-};
-
-/**
- * Check if date is within last 24 hours
- */
-export const isRecent = (dateString, hours = 24) => {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now - date;
-  const diffHours = diffMs / (1000 * 60 * 60);
-  
-  return diffHours <= hours;
-};
-
-// ==================== RISK CALCULATION HELPERS ====================
-
-/**
- * Get risk level from score
- */
-export const getRiskLevelFromScore = (score) => {
-  if (score <= 3.3) return RISK_LEVELS.LOW;
-  if (score <= 6.6) return RISK_LEVELS.MEDIUM;
-  return RISK_LEVELS.HIGH;
-};
-
-/**
- * Get flag color from risk score
- */
-export const getFlagColorFromScore = (score) => {
-  if (score <= 3.3) return 'green';
-  if (score <= 6.6) return 'yellow';
+  if (score <= thresholds.low) return 'green';
+  if (score <= thresholds.medium) return 'yellow';
   return 'red';
 };
 
 /**
- * Get risk emoji from score
+ * Get risk emoji from score based on skill level
+ * @param {number} score - Risk score (0-10)
+ * @param {string} skillLevel - 'beginner', 'intermediate', 'advanced', or 'overall'
+ * @returns {string} Risk emoji
  */
-export const getRiskEmoji = (score) => {
-  if (score <= 3.3) return '🟢';
-  if (score <= 6.6) return '🟡';
-  return '🔴';
-};
-
-/**
- * Calculate average risk score
- */
-export const calculateAverageRisk = (surfSpots) => {
-  if (!surfSpots || surfSpots.length === 0) return 0;
+export const getRiskEmojiForSkill = (score, skillLevel = 'overall') => {
+  const flagColor = getFlagColorForSkill(score, skillLevel);
   
-  const sum = surfSpots.reduce((acc, spot) => acc + (spot.riskScore || 0), 0);
-  return (sum / surfSpots.length).toFixed(2);
-};
-
-/**
- * Get severity object from value
- */
-export const getSeverityLevel = (severityValue) => {
-  return SEVERITY_LEVELS.find(level => level.value === severityValue) || SEVERITY_LEVELS[0];
-};
-
-// ==================== STRING HELPERS ====================
-
-/**
- * Capitalize first letter
- */
-export const capitalizeFirst = (str) => {
-  if (!str) return '';
-  return str.charAt(0).toUpperCase() + str.slice(1);
-};
-
-/**
- * Truncate text
- */
-export const truncateText = (text, maxLength = 100) => {
-  if (!text || text.length <= maxLength) return text;
-  return text.substring(0, maxLength) + '...';
-};
-
-/**
- * Format number with commas
- */
-export const formatNumber = (num) => {
-  if (num === undefined || num === null) return '0';
-  return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-};
-
-/**
- * Generate initials from name
- */
-export const getInitials = (name) => {
-  if (!name) return '??';
-  
-  const parts = name.trim().split(' ');
-  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
-  
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-};
-
-// ==================== FILE HELPERS ====================
-
-/**
- * Format file size
- */
-export const formatFileSize = (bytes) => {
-  if (bytes === 0) return '0 B';
-  if (!bytes) return 'Unknown';
-  
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  
-  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
-};
-
-/**
- * Get file extension
- */
-export const getFileExtension = (filename) => {
-  if (!filename) return '';
-  return filename.split('.').pop().toLowerCase();
-};
-
-/**
- * Check if file is image
- */
-export const isImageFile = (filename) => {
-  const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'];
-  const ext = getFileExtension(filename);
-  return imageExtensions.includes(ext);
-};
-
-/**
- * Check if file is video
- */
-export const isVideoFile = (filename) => {
-  const videoExtensions = ['mp4', 'mov', 'avi', 'mkv', 'webm'];
-  const ext = getFileExtension(filename);
-  return videoExtensions.includes(ext);
-};
-
-// ==================== ALERT HELPERS ====================
-
-/**
- * Show success alert
- */
-export const showSuccessAlert = (message, onPress = null) => {
-  Alert.alert(
-    'Success',
-    message,
-    [{ text: 'OK', onPress }],
-    { cancelable: false }
-  );
-};
-
-/**
- * Show error alert
- */
-export const showErrorAlert = (message, onPress = null) => {
-  Alert.alert(
-    'Error',
-    message,
-    [{ text: 'OK', onPress }],
-    { cancelable: false }
-  );
-};
-
-/**
- * Show confirmation alert
- */
-export const showConfirmAlert = (title, message, onConfirm, onCancel = null) => {
-  Alert.alert(
-    title,
-    message,
-    [
-      {
-        text: 'Cancel',
-        style: 'cancel',
-        onPress: onCancel,
-      },
-      {
-        text: 'Confirm',
-        onPress: onConfirm,
-      },
-    ],
-    { cancelable: false }
-  );
-};
-
-// ==================== ARRAY HELPERS ====================
-
-/**
- * Remove duplicates from array
- */
-export const removeDuplicates = (array, key = null) => {
-  if (!key) {
-    return [...new Set(array)];
+  switch(flagColor) {
+    case 'green': return '🟢';
+    case 'yellow': return '🟡';
+    case 'red': return '🔴';
+    default: return '⚪';
   }
-  
-  return array.filter((item, index, self) =>
-    index === self.findIndex(t => t[key] === item[key])
-  );
 };
 
 /**
- * Sort array by key
+ * Get risk description for skill level
+ * @param {number} score - Risk score (0-10)
+ * @param {string} skillLevel - 'beginner', 'intermediate', 'advanced', or 'overall'
+ * @returns {string} Description
  */
-export const sortByKey = (array, key, order = 'asc') => {
-  return [...array].sort((a, b) => {
-    if (order === 'asc') {
-      return a[key] > b[key] ? 1 : -1;
-    } else {
-      return a[key] < b[key] ? 1 : -1;
+export const getRiskDescriptionForSkill = (score, skillLevel = 'overall') => {
+  const riskLevel = getRiskLevelForSkill(score, skillLevel);
+  
+  const descriptions = {
+    beginner: {
+      Low: 'Ideal conditions for beginners (1-5)',
+      Medium: 'Caution advised for beginners (5-6.5)',
+      High: 'Dangerous for beginners (6.5-10)'
+    },
+    intermediate: {
+      Low: 'Safe for intermediate surfers (1-6)',
+      Medium: 'Moderate risk for intermediates (6-7.2)',
+      High: 'High risk for intermediates (7.2-10)'
+    },
+    advanced: {
+      Low: 'Low risk for advanced surfers (1-7)',
+      Medium: 'Some caution for advanced (7-8)',
+      High: 'Challenging even for advanced (8-10)'
+    },
+    overall: {
+      Low: 'Generally safe conditions',
+      Medium: 'Caution advised - check conditions',
+      High: 'Dangerous conditions - avoid if possible'
     }
-  });
+  };
+  
+  return descriptions[skillLevel]?.[riskLevel.level] || descriptions.overall[riskLevel.level];
 };
 
 /**
- * Group array by key
+ * Get threshold ranges for a skill level
+ * @param {string} skillLevel - 'beginner', 'intermediate', 'advanced', or 'overall'
+ * @returns {object} Threshold ranges
  */
-export const groupBy = (array, key) => {
-  return array.reduce((result, item) => {
-    const groupKey = item[key];
-    if (!result[groupKey]) {
-      result[groupKey] = [];
-    }
-    result[groupKey].push(item);
-    return result;
-  }, {});
-};
-
-// ==================== COORDINATE HELPERS ====================
-
-/**
- * Calculate distance between two coordinates (Haversine formula)
- */
-export const calculateDistance = (lat1, lon1, lat2, lon2) => {
-  const R = 6371; // Earth's radius in km
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
+export const getThresholdRanges = (skillLevel = 'overall') => {
+  const thresholds = SKILL_RISK_THRESHOLDS[skillLevel] || SKILL_RISK_THRESHOLDS.overall;
   
-  const a = 
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const distance = R * c;
-  
-  return distance; // Returns distance in km
+  return {
+    low: { min: 1, max: thresholds.low, label: `1-${thresholds.low}` },
+    medium: { min: thresholds.low, max: thresholds.medium, label: `${thresholds.low}-${thresholds.medium}` },
+    high: { min: thresholds.medium, max: 10, label: `${thresholds.medium}-10` }
+  };
 };
 
 /**
- * Convert degrees to radians
+ * Format risk score with skill-specific context
+ * @param {number} score - Risk score (0-10)
+ * @param {string} skillLevel - 'beginner', 'intermediate', 'advanced', or 'overall'
+ * @returns {string} Formatted string
  */
-const toRad = (degrees) => {
-  return degrees * (Math.PI / 180);
+export const formatRiskScoreForSkill = (score, skillLevel = 'overall') => {
+  const riskLevel = getRiskLevelForSkill(score, skillLevel);
+  return `${score}/10 ${riskLevel.emoji} ${riskLevel.level}`;
 };
 
-/**
- * Find nearest surf spot
- */
-export const findNearestSpot = (currentLat, currentLon, surfSpots) => {
-  if (!surfSpots || surfSpots.length === 0) return null;
-  
-  let nearest = surfSpots[0];
-  let minDistance = calculateDistance(
-    currentLat,
-    currentLon,
-    surfSpots[0].coordinates.latitude,
-    surfSpots[0].coordinates.longitude
-  );
-  
-  surfSpots.forEach(spot => {
-    const distance = calculateDistance(
-      currentLat,
-      currentLon,
-      spot.coordinates.latitude,
-      spot.coordinates.longitude
-    );
-    
-    if (distance < minDistance) {
-      minDistance = distance;
-      nearest = spot;
-    }
-  });
-  
-  return { spot: nearest, distance: minDistance };
-};
-
-// ==================== EXPORT ALL ====================
-export default {
-  // Validation
-  validateEmail,
-  validatePassword,
-  validateName,
-  validateDescription,
-  
-  // Date/Time
-  formatDate,
-  getRelativeTime,
-  isToday,
-  isRecent,
-  
-  // Risk
-  getRiskLevelFromScore,
-  getFlagColorFromScore,
-  getRiskEmoji,
-  calculateAverageRisk,
-  getSeverityLevel,
-  
-  // String
-  capitalizeFirst,
-  truncateText,
-  formatNumber,
-  getInitials,
-  
-  // File
-  formatFileSize,
-  getFileExtension,
-  isImageFile,
-  isVideoFile,
-  
-  // Alert
-  showSuccessAlert,
-  showErrorAlert,
-  showConfirmAlert,
-  
-  // Array
-  removeDuplicates,
-  sortByKey,
-  groupBy,
-  
-  // Coordinates
-  calculateDistance,
-  findNearestSpot,
-};
+// ... (keep rest of existing helpers)
