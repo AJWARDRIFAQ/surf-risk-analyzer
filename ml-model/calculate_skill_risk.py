@@ -29,17 +29,25 @@ RISK_DATA = {
     'Weligama': {'total': 200, 'advanced': 27, 'beginner': 87, 'intermediate': 18}
 }
 
+# Skill-specific thresholds
+SKILL_THRESHOLDS = {
+    'beginner': {
+        'low': 5.0,      # 1-5 = Green Flag (Low Risk)
+        'medium': 6.5    # 5-6.5 = Yellow Flag (Medium Risk), 6.5-10 = Red Flag (High Risk)
+    },
+    'intermediate': {
+        'low': 6.0,      # 1-6 = Green Flag (Low Risk)
+        'medium': 7.2    # 6-7.2 = Yellow Flag (Medium Risk), 7.2-10 = Red Flag (High Risk)
+    },
+    'advanced': {
+        'low': 7.0,      # 1-7 = Green Flag (Low Risk)
+        'medium': 8.0    # 7-8 = Yellow Flag (Medium Risk), 8-10 = Red Flag (High Risk)
+    }
+}
+
 def calculate_risk_score(incidents_count, max_incidents, skill_multiplier=1.0):
     """
     Calculate risk score (0-10) based on incident count
-    
-    Args:
-        incidents_count: Number of incidents for this skill level
-        max_incidents: Maximum incidents across all spots for normalization
-        skill_multiplier: Multiplier based on skill level
-    
-    Returns:
-        Risk score between 0 and 10
     """
     if max_incidents == 0:
         return 0
@@ -55,19 +63,16 @@ def calculate_risk_score(incidents_count, max_incidents, skill_multiplier=1.0):
     
     return round(risk_score, 2)
 
-def get_risk_level_and_flag(score):
+def get_risk_level_and_flag(score, skill_level):
     """
-    Determine risk level and flag color based on score
-    
-    Args:
-        score: Risk score (0-10)
-    
-    Returns:
-        tuple: (risk_level, flag_color)
+    Determine risk level and flag color based on score and skill level
+    Uses custom thresholds for each skill level
     """
-    if score <= 3.3:
+    thresholds = SKILL_THRESHOLDS.get(skill_level, SKILL_THRESHOLDS['beginner'])
+    
+    if score <= thresholds['low']:
         return ('Low', 'green')
-    elif score <= 6.6:
+    elif score <= thresholds['medium']:
         return ('Medium', 'yellow')
     else:
         return ('High', 'red')
@@ -76,7 +81,7 @@ def calculate_skill_based_risks():
     """
     Calculate risk scores for each skill level at each surf spot
     """
-    print("Calculating skill-based risk scores...")
+    print("Calculating skill-based risk scores with custom thresholds...")
     
     # Find max incidents for each skill level for normalization
     max_beginner = max([data['beginner'] for data in RISK_DATA.values()])
@@ -84,6 +89,10 @@ def calculate_skill_based_risks():
     max_advanced = max([data['advanced'] for data in RISK_DATA.values()])
     
     print(f"Max incidents - Beginner: {max_beginner}, Intermediate: {max_intermediate}, Advanced: {max_advanced}")
+    print(f"\nSkill-Specific Thresholds:")
+    print(f"  Beginner:     Low (1-5.0) | Medium (5.0-6.5) | High (6.5-10)")
+    print(f"  Intermediate: Low (1-6.0) | Medium (6.0-7.2) | High (7.2-10)")
+    print(f"  Advanced:     Low (1-7.0) | Medium (7.0-8.0) | High (8.0-10)")
     
     results = []
     
@@ -91,9 +100,9 @@ def calculate_skill_based_risks():
         print(f"\n{spot_name}:")
         
         # Skill multipliers (beginners face higher risk from same number of incidents)
-        beginner_multiplier = 1.5  # Beginners: 50% higher risk
-        intermediate_multiplier = 1.0  # Intermediate: baseline
-        advanced_multiplier = 0.7  # Advanced: 30% lower risk
+        beginner_multiplier = 1.5
+        intermediate_multiplier = 1.0
+        advanced_multiplier = 0.7
         
         # Calculate scores for each skill level
         beginner_score = calculate_risk_score(
@@ -114,18 +123,20 @@ def calculate_skill_based_risks():
             advanced_multiplier
         )
         
-        # Get risk levels and flags
-        beginner_level, beginner_flag = get_risk_level_and_flag(beginner_score)
-        intermediate_level, intermediate_flag = get_risk_level_and_flag(intermediate_score)
-        advanced_level, advanced_flag = get_risk_level_and_flag(advanced_score)
+        # Get risk levels and flags using skill-specific thresholds
+        beginner_level, beginner_flag = get_risk_level_and_flag(beginner_score, 'beginner')
+        intermediate_level, intermediate_flag = get_risk_level_and_flag(intermediate_score, 'intermediate')
+        advanced_level, advanced_flag = get_risk_level_and_flag(advanced_score, 'advanced')
         
         # Calculate overall risk (weighted average)
         overall_score = (
-            beginner_score * 0.5 +  # Beginners weighted higher (50%)
-            intermediate_score * 0.3 +  # Intermediate (30%)
-            advanced_score * 0.2  # Advanced (20%)
+            beginner_score * 0.5 +
+            intermediate_score * 0.3 +
+            advanced_score * 0.2
         )
-        overall_level, overall_flag = get_risk_level_and_flag(overall_score)
+        
+        # Use beginner thresholds for overall risk (most conservative)
+        overall_level, overall_flag = get_risk_level_and_flag(overall_score, 'beginner')
         
         result = {
             'spot_name': spot_name,
@@ -279,7 +290,7 @@ def generate_risk_summary():
 
 if __name__ == '__main__':
     print("="*80)
-    print("SKILL-BASED SURF RISK ANALYZER")
+    print("SKILL-BASED SURF RISK ANALYZER WITH CUSTOM THRESHOLDS")
     print("="*80)
     
     # Generate summary report
