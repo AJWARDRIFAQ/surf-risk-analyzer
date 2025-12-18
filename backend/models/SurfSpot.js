@@ -7,12 +7,13 @@ const surfSpotSchema = new mongoose.Schema({
     latitude: { type: Number, required: true },
     longitude: { type: Number, required: true }
   },
+  
   // Overall risk (for general display)
   riskScore: { type: Number, default: 0, min: 0, max: 10 },
   riskLevel: { type: String, enum: ['Low', 'Medium', 'High'], default: 'Low' },
   flagColor: { type: String, enum: ['green', 'yellow', 'red'], default: 'green' },
   
-  // Skill-specific risks
+  // Skill-specific risks with custom thresholds
   skillLevelRisks: {
     beginner: {
       incidents: { type: Number, default: 0 },
@@ -60,6 +61,7 @@ surfSpotSchema.methods.calculateRiskScore = function() {
 
 // Skill-specific risk calculation with custom thresholds
 surfSpotSchema.methods.calculateSkillRiskScore = function(skillLevel, riskScore) {
+  // Custom thresholds for each skill level
   const thresholds = {
     beginner: {
       low: 5.0,      // 1-5 = Green
@@ -103,6 +105,30 @@ surfSpotSchema.methods.calculateSkillRiskScore = function(skillLevel, riskScore)
   }
 
   return { riskLevel, flagColor };
+};
+
+// Update all skill levels at once
+surfSpotSchema.methods.updateAllSkillLevels = function(skillScores) {
+  if (skillScores.beginner !== undefined) {
+    this.calculateSkillRiskScore('beginner', skillScores.beginner);
+  }
+  if (skillScores.intermediate !== undefined) {
+    this.calculateSkillRiskScore('intermediate', skillScores.intermediate);
+  }
+  if (skillScores.advanced !== undefined) {
+    this.calculateSkillRiskScore('advanced', skillScores.advanced);
+  }
+  
+  // Update overall risk score (weighted average)
+  const overallScore = (
+    (skillScores.beginner || 0) * 0.5 +
+    (skillScores.intermediate || 0) * 0.3 +
+    (skillScores.advanced || 0) * 0.2
+  );
+  
+  this.riskScore = overallScore;
+  this.calculateRiskScore();
+  this.lastUpdated = Date.now();
 };
 
 module.exports = mongoose.model('SurfSpot', surfSpotSchema);

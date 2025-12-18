@@ -185,26 +185,27 @@ export default function RiskAnalyzerScreen({ navigation }) {
               <View style={styles.spotHeader}>
                 <View style={styles.spotInfo}>
                   <Text style={styles.spotName}>
-                    {getFlagEmoji(riskData.flag)} {spot.name}
+                    {selectedSkillLevel !== 'overall' && getFlagEmoji(riskData.flag)} {spot.name}
                   </Text>
                   <Text style={styles.spotLocation}>{spot.location}</Text>
                   
-                  <View style={[
-                    styles.riskBadge,
-                    { backgroundColor: riskData.level === 'High' ? '#fee2e2' : riskData.level === 'Medium' ? '#fef3c7' : '#d1fae5' }
-                  ]}>
-                    <Text style={[
-                      styles.riskBadgeText,
-                      { color: riskData.level === 'High' ? '#991b1b' : riskData.level === 'Medium' ? '#92400e' : '#065f46' }
+                  {selectedSkillLevel !== 'overall' && (
+                    <View style={[
+                      styles.riskBadge,
+                      { backgroundColor: riskData.level === 'High' ? '#fee2e2' : riskData.level === 'Medium' ? '#fef3c7' : '#d1fae5' }
                     ]}>
-                      {riskData.level} Risk
-                    </Text>
-                  </View>
+                      <Text style={[
+                        styles.riskBadgeText,
+                        { color: riskData.level === 'High' ? '#991b1b' : riskData.level === 'Medium' ? '#92400e' : '#065f46' }
+                      ]}>
+                        {riskData.level} Risk
+                      </Text>
+                    </View>
+                  )}
 
-                  {/* Show skill breakdown ONLY when overall is selected - NO INCIDENT COUNTS */}
                   {selectedSkillLevel === 'overall' && spot.skillLevelRisks && (
                     <View style={styles.skillBreakdown}>
-                      <Text style={styles.skillBreakdownTitle}>Risk by Skill Level:</Text>
+                      <Text style={styles.skillBreakdownTitle}>By Skill Level:</Text>
                       <Text style={styles.skillBreakdownItem}>
                         🏄‍♀️ Beginner: {spot.skillLevelRisks.beginner?.riskScore}/10 {getFlagEmoji(spot.skillLevelRisks.beginner?.flagColor)}
                       </Text>
@@ -249,7 +250,7 @@ export default function RiskAnalyzerScreen({ navigation }) {
             <Text style={styles.legendEmoji}>🟡</Text>
             <View>
               <Text style={styles.legendLabel}>Yellow Flag - Medium Risk</Text>
-              <Text style={styles.legendDesc}>Caution advised</Text>
+              <Text style={styles.legendDesc}>Caution advised for this skill level</Text>
             </View>
           </View>
 
@@ -257,7 +258,7 @@ export default function RiskAnalyzerScreen({ navigation }) {
             <Text style={styles.legendEmoji}>🔴</Text>
             <View>
               <Text style={styles.legendLabel}>Red Flag - High Risk</Text>
-              <Text style={styles.legendDesc}>Dangerous conditions</Text>
+              <Text style={styles.legendDesc}>Dangerous for this skill level</Text>
             </View>
           </View>
         </View>
@@ -278,22 +279,56 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f9fafb' },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { marginTop: 16, color: '#6b7280' },
-  skillSelector: { backgroundColor: 'white', paddingVertical: 12, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: '#e5e7eb', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 3, elevation: 3 },
-  skillButton: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, marginHorizontal: 4, borderRadius: 20, backgroundColor: '#f3f4f6', borderWidth: 2, borderColor: '#e5e7eb' },
-  skillButtonActive: { backgroundColor: '#e0f2fe', borderColor: '#0891b2' },
+  
+  skillSelector: { 
+    backgroundColor: 'white', 
+    paddingVertical: 12, 
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3
+  },
+  skillButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginHorizontal: 4,
+    borderRadius: 20,
+    backgroundColor: '#f3f4f6',
+    borderWidth: 2,
+    borderColor: '#e5e7eb'
+  },
+  skillButtonActive: {
+    backgroundColor: '#e0f2fe',
+    borderColor: '#0891b2'
+  },
   skillIcon: { fontSize: 18, marginRight: 6 },
-  skillButtonText: { fontSize: 13, fontWeight: '600', color: '#6b7280' },
-  skillButtonTextActive: { color: '#0891b2' },
+  skillButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6b7280'
+  },
+  skillButtonTextActive: {
+    color: '#0891b2'
+  },
+  
   mapContainer: { height: '35%' },
   map: { flex: 1 },
   callout: { padding: 8, minWidth: 150 },
   calloutTitle: { fontWeight: 'bold', fontSize: 16, marginBottom: 4 },
   calloutSkill: { fontSize: 12, color: '#6b7280', marginBottom: 4 },
+  
   listContainer: { flex: 1, padding: 16 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#1f2937' },
   refreshButton: { backgroundColor: '#0891b2', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 },
   refreshButtonText: { color: 'white', fontWeight: '600', fontSize: 13 },
+  
   spotCard: { backgroundColor: 'white', borderRadius: 12, padding: 16, marginBottom: 12, borderLeftWidth: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 3, elevation: 3 },
   spotHeader: { flexDirection: 'row', justifyContent: 'space-between' },
   spotInfo: { flex: 1 },
@@ -301,20 +336,39 @@ const styles = StyleSheet.create({
   spotLocation: { fontSize: 13, color: '#6b7280', marginBottom: 8 },
   riskBadge: { paddingVertical: 4, paddingHorizontal: 12, borderRadius: 8, alignSelf: 'flex-start', marginBottom: 8 },
   riskBadgeText: { fontSize: 12, fontWeight: '600' },
-  skillBreakdown: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#f3f4f6' },
-  skillBreakdownTitle: { fontSize: 12, fontWeight: '600', color: '#6b7280', marginBottom: 6 },
-  skillBreakdownItem: { fontSize: 11, color: '#374151', marginBottom: 3 },
+  
+  skillBreakdown: { 
+    marginTop: 12, 
+    paddingTop: 12, 
+    borderTopWidth: 1, 
+    borderTopColor: '#f3f4f6' 
+  },
+  skillBreakdownTitle: { 
+    fontSize: 12, 
+    fontWeight: '600', 
+    color: '#6b7280', 
+    marginBottom: 6 
+  },
+  skillBreakdownItem: { 
+    fontSize: 11, 
+    color: '#374151', 
+    marginBottom: 3 
+  },
+  
   riskScore: { alignItems: 'flex-end' },
   riskScoreValue: { fontSize: 32, fontWeight: 'bold', color: '#1f2937' },
   riskScoreLabel: { fontSize: 12, color: '#9ca3af' },
+  
   spotFooter: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#f3f4f6' },
-  footerText: { fontSize: 11, color: '#6b7280' },
+  footerText: { fontSize: 11, color: '#6b7280', marginBottom: 3 },
+  
   legend: { backgroundColor: 'white', borderRadius: 12, padding: 16, marginTop: 8, marginBottom: 24 },
   legendTitle: { fontSize: 16, fontWeight: 'bold', color: '#1f2937', marginBottom: 12 },
   legendItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   legendEmoji: { fontSize: 24, marginRight: 12 },
   legendLabel: { fontSize: 14, fontWeight: '600', color: '#1f2937' },
   legendDesc: { fontSize: 12, color: '#6b7280' },
+  
   fabButton: { position: 'absolute', bottom: 24, right: 24, backgroundColor: '#ef4444', width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 8 },
   fabText: { fontSize: 32 },
 });

@@ -1,12 +1,16 @@
+// ==================== API CONFIGURATION ====================
 export const API_CONFIG = {
-  BASE_URL: __DEV__
-    ? 'http://10.91.46.168:5000/api' // Development
-    : 'https://your-production-api.com/api', // Production
+  // BASE_URL: __DEV__ 
+  //   ? 'http://localhost:5000/api'  // Development
+  //   : 'https://your-production-api.com/api', // Production
+  
+  // ML_API_URL: __DEV__
+  //   ? 'http://localhost:5001'
+  //   : 'https://your-ml-api.com',
 
-  ML_API_URL: __DEV__
-    ? 'http://10.91.46.168:5001'
-    : 'https://your-ml-api.com',
-
+   BASE_URL: 'http://10.91.46.168:5000/api',  // Your computer's IP
+  ML_API_URL: 'http://10.91.46.168:5001', 
+  
   TIMEOUT: 30000, // 30 seconds
   MAX_RETRIES: 3,
 };
@@ -45,161 +49,99 @@ export const HAZARD_TYPES = [
 
 // ==================== SEVERITY LEVELS ====================
 export const SEVERITY_LEVELS = [
-  {
-    value: 'low',
-    label: 'Low',
+  { 
+    value: 'low', 
+    label: 'Low', 
     color: '#10b981',
     bgColor: '#d1fae5',
     textColor: '#065f46',
-    description: 'Minor concern, manageable by most surfers',
+    description: 'Minor concern, manageable by most surfers'
   },
-  {
-    value: 'medium',
-    label: 'Medium',
+  { 
+    value: 'medium', 
+    label: 'Medium', 
     color: '#f59e0b',
     bgColor: '#fef3c7',
     textColor: '#92400e',
-    description: 'Moderate risk, caution advised',
+    description: 'Moderate risk, caution advised'
   },
-  {
-    value: 'high',
-    label: 'High',
+  { 
+    value: 'high', 
+    label: 'High', 
     color: '#ef4444',
     bgColor: '#fee2e2',
     textColor: '#991b1b',
-    description: 'Serious hazard, avoid if possible',
+    description: 'Serious hazard, avoid if possible'
   },
 ];
 
-// ==================== SKILL-SPECIFIC RISK THRESHOLDS ====================
-export const SKILL_RISK_THRESHOLDS = {
-  beginner: {
-    low: 5.0, // 1-5 = Green Flag (Low Risk)
-    medium: 6.5, // 5-6.5 = Yellow Flag (Medium Risk), 6.5-10 = Red Flag (High Risk)
-  },
-  intermediate: {
-    low: 6.0, // 1-6 = Green Flag (Low Risk)
-    medium: 7.2, // 6-7.2 = Yellow Flag (Medium Risk), 7.2-10 = Red Flag (High Risk)
-  },
-  advanced: {
-    low: 7.0, // 1-7 = Green Flag (Low Risk)
-    medium: 8.0, // 7-8 = Yellow Flag (Medium Risk), 8-10 = Red Flag (High Risk)
-  },
-  overall: {
-    low: 3.3, // Default overall thresholds
-    medium: 6.6,
-  },
-};
-
-// ==================== RISK LEVELS WITH SKILL-SPECIFIC INFO ====================
+// ==================== RISK LEVELS ====================
 export const RISK_LEVELS = {
   LOW: {
     value: 'Low',
+    range: [0, 3.3],
     color: '#10b981',
     bgColor: '#d1fae5',
     textColor: '#065f46',
     flag: 'green',
     emoji: '🟢',
-    description: 'Safe conditions for this skill level',
-    skillDescriptions: {
-      beginner: 'Ideal for beginners (Score: 1-5)',
-      intermediate: 'Safe for intermediates (Score: 1-6)',
-      advanced: 'Low risk for advanced (Score: 1-7)',
-      overall: 'Generally safe conditions',
-    },
+    description: 'Safe conditions for most surfers',
+    recommendations: [
+      'Ideal for beginners',
+      'Standard safety equipment sufficient',
+      'Enjoy your session!',
+    ],
   },
   MEDIUM: {
     value: 'Medium',
+    range: [3.4, 6.6],
     color: '#f59e0b',
     bgColor: '#fef3c7',
     textColor: '#92400e',
     flag: 'yellow',
     emoji: '🟡',
-    description: 'Caution advised for this skill level',
-    skillDescriptions: {
-      beginner: 'Caution for beginners (Score: 5-6.5)',
-      intermediate: 'Moderate for intermediates (Score: 6-7.2)',
-      advanced: 'Some caution for advanced (Score: 7-8)',
-      overall: 'Check conditions carefully',
-    },
+    description: 'Caution advised - Check conditions carefully',
+    recommendations: [
+      'Intermediate+ surfers recommended',
+      'Check recent hazard reports',
+      'Use buddy system',
+      'Be prepared for changing conditions',
+    ],
   },
   HIGH: {
     value: 'High',
+    range: [6.7, 10],
     color: '#ef4444',
     bgColor: '#fee2e2',
     textColor: '#991b1b',
     flag: 'red',
     emoji: '🔴',
-    description: 'Dangerous conditions for this skill level',
-    skillDescriptions: {
-      beginner: 'Dangerous for beginners (Score: 6.5-10)',
-      intermediate: 'High risk for intermediates (Score: 7.2-10)',
-      advanced: 'Challenging for advanced (Score: 8-10)',
-      overall: 'Avoid surfing if possible',
-    },
+    description: 'Dangerous conditions - Avoid surfing',
+    recommendations: [
+      'Advanced surfers only',
+      'Multiple hazards present',
+      'Consider postponing session',
+      'Emergency contact ready',
+    ],
   },
-};
-
-// ==================== HELPER FUNCTION FOR SKILL-BASED RISK ====================
-/**
- * Get risk level based on score and skill level
- * @param {number} score - Risk score (0-10)
- * @param {string} skillLevel - 'beginner', 'intermediate', 'advanced', or 'overall'
- * @returns {object} Risk level object
- */
-export const getRiskLevelForSkill = (score, skillLevel = 'overall') => {
-  const thresholds =
-    SKILL_RISK_THRESHOLDS[skillLevel] || SKILL_RISK_THRESHOLDS.overall;
-
-  if (score <= thresholds.low) {
-    return {
-      ...RISK_LEVELS.LOW,
-      description: RISK_LEVELS.LOW.skillDescriptions[skillLevel],
-    };
-  } else if (score <= thresholds.medium) {
-    return {
-      ...RISK_LEVELS.MEDIUM,
-      description: RISK_LEVELS.MEDIUM.skillDescriptions[skillLevel],
-    };
-  } else {
-    return {
-      ...RISK_LEVELS.HIGH,
-      description: RISK_LEVELS.HIGH.skillDescriptions[skillLevel],
-    };
-  }
-};
-
-/**
- * Get flag color based on score and skill level
- * @param {number} score - Risk score (0-10)
- * @param {string} skillLevel - 'beginner', 'intermediate', 'advanced', or 'overall'
- * @returns {string} Flag color ('green', 'yellow', or 'red')
- */
-export const getFlagColorForSkill = (score, skillLevel = 'overall') => {
-  const thresholds =
-    SKILL_RISK_THRESHOLDS[skillLevel] || SKILL_RISK_THRESHOLDS.overall;
-
-  if (score <= thresholds.low) return 'green';
-  if (score <= thresholds.medium) return 'yellow';
-  return 'red';
 };
 
 // ==================== FLAG COLORS ====================
 export const FLAG_COLORS = {
-  green: {
-    name: 'Green Flag',
+  green: { 
+    name: 'Green Flag', 
     description: 'Low Risk - Safe Conditions',
     emoji: '🟢',
     color: '#10b981',
   },
-  yellow: {
-    name: 'Yellow Flag',
+  yellow: { 
+    name: 'Yellow Flag', 
     description: 'Medium Risk - Caution Advised',
     emoji: '🟡',
     color: '#f59e0b',
   },
-  red: {
-    name: 'Red Flag',
+  red: { 
+    name: 'Red Flag', 
     description: 'High Risk - Dangerous Conditions',
     emoji: '🔴',
     color: '#ef4444',
@@ -346,7 +288,7 @@ export const COLORS = {
   warning: '#f59e0b',
   danger: '#ef4444',
   info: '#3b82f6',
-
+  
   // Grays
   gray50: '#f9fafb',
   gray100: '#f3f4f6',
@@ -358,7 +300,7 @@ export const COLORS = {
   gray700: '#374151',
   gray800: '#1f2937',
   gray900: '#111827',
-
+  
   // Special
   white: '#ffffff',
   black: '#000000',
@@ -371,10 +313,7 @@ export default {
   SURF_SPOTS,
   HAZARD_TYPES,
   SEVERITY_LEVELS,
-  SKILL_RISK_THRESHOLDS,
   RISK_LEVELS,
-  getRiskLevelForSkill,
-  getFlagColorForSkill,
   FLAG_COLORS,
   EXPERIENCE_LEVELS,
   USER_ROLES,
