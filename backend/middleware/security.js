@@ -289,9 +289,42 @@ const sanitizeRequest = (req, res, next) => {
   };
   
   // Sanitize request data
-  if (req.body) req.body = sanitize(req.body);
-  if (req.query) req.query = sanitize(req.query);
-  if (req.params) req.params = sanitize(req.params);
+  // req.body is typically writable
+  if (req.body) {
+    try {
+      req.body = sanitize(req.body);
+    } catch (e) {
+      // fallback: shallow-merge sanitized fields
+      const s = sanitize(req.body);
+      for (const k of Object.keys(req.body)) delete req.body[k];
+      Object.assign(req.body, s);
+    }
+  }
+
+  // req.query may be a getter-only property in some environments (can't reassign)
+  if (req.query) {
+    const sanitizedQuery = sanitize(req.query);
+    try {
+      // Try to replace safely by removing existing keys and copying sanitized ones
+      for (const k of Object.keys(req.query)) delete req.query[k];
+      Object.assign(req.query, sanitizedQuery);
+    } catch (err) {
+      // If mutation fails, attach sanitized copy under a safe property and log
+      req.customQuery = sanitizedQuery;
+      console.warn('⚠️  Could not overwrite req.query; using req.customQuery instead');
+    }
+  }
+
+  // req.params usually writable
+  if (req.params) {
+    try {
+      req.params = sanitize(req.params);
+    } catch (e) {
+      const s = sanitize(req.params);
+      for (const k of Object.keys(req.params)) delete req.params[k];
+      Object.assign(req.params, s);
+    }
+  }
   
   next();
 };
@@ -367,7 +400,6 @@ const applySecurityMiddleware = (app) => {
   app.use(helmetConfig);
   app.use(removeSensitiveHeaders);
   app.use(addCustomHeaders);
-  app.use(mongoSanitizeConfig);
   app.use(xssProtection);
   app.use(hppProtection);
   app.use(validateContentType);

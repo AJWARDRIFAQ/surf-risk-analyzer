@@ -35,8 +35,8 @@ export default {
     },
     extra: {
       // These can be accessed via expo-constants
-      apiBaseUrl: process.env.API_BASE_URL || "http://172.28.0.149:5000/api",
-      mlApiUrl: process.env.ML_API_URL || "http://172.28.0.149:5001",
+      apiBaseUrl: process.env.API_BASE_URL || "http://10.91.46.168:5000/api",
+      mlApiUrl: process.env.ML_API_URL || "http://10.91.46.168:5001",
       environment: process.env.NODE_ENV || "development",
       eas: {
         projectId: "your-project-id-here"

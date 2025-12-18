@@ -24,8 +24,9 @@ exports.getIncidentsBySpot = async (req, res) => {
 
 exports.getAllIncidents = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 50;
+  const q = req.customQuery || req.query || {};
+  const page = parseInt(q.page) || 1;
+  const limit = parseInt(q.limit) || 50;
     const skip = (page - 1) * limit;
 
     const incidents = await Incident.find()

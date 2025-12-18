@@ -21,11 +21,11 @@ const getApiBaseUrl = () => {
   } else if (platform?.android) {
     // Android Emulator: 10.0.2.2 maps to host's localhost
     // Physical device: Use your computer's IP
-    return 'http://10.0.2.2:5000/api';
+    return 'http://10.91.46.168:5000/api';
   }
   
   // Default fallback
-  return 'http://192.168.1.100:5000/api';
+  return 'http://10.91.46.168:5000/api';
 };
 
 const API_BASE_URL = getApiBaseUrl();

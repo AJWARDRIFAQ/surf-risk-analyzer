@@ -8,8 +8,8 @@ export const API_CONFIG = {
   //   ? 'http://localhost:5001'
   //   : 'https://your-ml-api.com',
 
-   BASE_URL: 'http://10.208.128.168:5000/api',  // Your computer's IP
-  ML_API_URL: 'http://10.208.128.168:5001', 
+   BASE_URL: 'http://10.91.46.168:5000/api',  // Your computer's IP
+  ML_API_URL: 'http://10.91.46.168:5001', 
   
   TIMEOUT: 30000, // 30 seconds
   MAX_RETRIES: 3,

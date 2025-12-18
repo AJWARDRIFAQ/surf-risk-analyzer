@@ -190,13 +190,20 @@ const validateMLUpdate = [
  * Prevents NoSQL injection through query params
  */
 const sanitizeQuery = (req, res, next) => {
-  // Remove any MongoDB operators from query
-  Object.keys(req.query).forEach(key => {
-    if (typeof req.query[key] === 'string') {
+  // Build a sanitized copy of the query parameters instead of mutating req.query
+  const sanitized = {};
+  Object.keys(req.query || {}).forEach(key => {
+    const val = req.query[key];
+    if (typeof val === 'string') {
       // Remove $ and . to prevent operator injection
-      req.query[key] = req.query[key].replace(/[\$\.]/g, '');
+      sanitized[key] = val.replace(/[\$\.]/g, '');
+    } else {
+      sanitized[key] = val;
     }
   });
+
+  // Expose a safe, sanitized query object for downstream handlers
+  req.customQuery = sanitized;
   next();
 };
 
