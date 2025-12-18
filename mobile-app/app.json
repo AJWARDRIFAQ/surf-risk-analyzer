@@ -7,14 +7,22 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#0891b2"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.surfrisk.analyzer"
+      "bundleIdentifier": "com.surfrisk.analyzer",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "This app needs your location to show nearby surf spots and calculate distances.",
+        "NSCameraUsageDescription": "This app needs camera access to capture hazard photos.",
+        "NSPhotoLibraryUsageDescription": "This app needs photo library access to select hazard images.",
+        "NSMicrophoneUsageDescription": "This app needs microphone access for video recording."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -24,12 +32,29 @@
       "package": "com.surfrisk.analyzer",
       "permissions": [
         "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
         "CAMERA",
-        "READ_EXTERNAL_STORAGE"
-      ]
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "RECORD_AUDIO"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "YOUR_GOOGLE_MAPS_API_KEY_HERE"
+        }
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Surf Risk Analyzer to access your photos to upload hazard images.",
+          "cameraPermission": "Allow Surf Risk Analyzer to access your camera to capture hazard photos."
+        }
+      ]
+    ]
   }
 }

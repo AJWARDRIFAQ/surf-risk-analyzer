@@ -190,7 +190,7 @@ const validateMLUpdate = [
  * Prevents NoSQL injection through query params
  */
 const sanitizeQuery = (req, res, next) => {
-  // Build a sanitized copy of the query parameters instead of mutating req.query
+  // Build a sanitized copy of the query parameters
   const sanitized = {};
   Object.keys(req.query || {}).forEach(key => {
     const val = req.query[key];
@@ -202,8 +202,19 @@ const sanitizeQuery = (req, res, next) => {
     }
   });
 
-  // Expose a safe, sanitized query object for downstream handlers
-  req.customQuery = sanitized;
+  // Attach sanitized query as a separate property
+  req.sanitizedQuery = sanitized;
+  
+  // For backward compatibility, also update the actual query if possible
+  try {
+    // Try to update query directly (works in most cases)
+    Object.keys(req.query).forEach(key => delete req.query[key]);
+    Object.assign(req.query, sanitized);
+  } catch (e) {
+    // If that fails, code should use req.sanitizedQuery instead
+    console.warn('⚠️  Using req.sanitizedQuery instead of req.query');
+  }
+  
   next();
 };
 

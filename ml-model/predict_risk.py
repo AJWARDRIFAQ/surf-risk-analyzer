@@ -80,25 +80,18 @@ def predict_risk_score(spot_name):
     
     features, hazard_boost = calculate_spot_features(spot_name)
     
-    # Prepare feature vector as DataFrame with correct columns
-    import pandas as pd
-    X = pd.DataFrame([features], columns=feature_cols)
-
+    # Prepare feature vector
+    X = np.array([[features[col] for col in feature_cols]])
+    
     # Predict risk level
     risk_level_int = rf_model.predict(X)[0]
     risk_level_proba = rf_model.predict_proba(X)[0]
-
-    # Guard against out-of-bounds index
-    if risk_level_int >= len(risk_level_proba):
-        confidence = risk_level_proba[0]
-    else:
-        confidence = risk_level_proba[risk_level_int]
-
+    
     # Calculate risk score (0-10)
     base_score = (risk_level_int + 1) * 3.33  # 0->3.33, 1->6.66, 2->10
-
+    
     # Adjust based on probability confidence
-    confidence_adjustment = (confidence - 0.5) * 2  # -1 to 1
+    confidence_adjustment = (risk_level_proba[risk_level_int] - 0.5) * 2  # -1 to 1
     risk_score = base_score + confidence_adjustment + hazard_boost
     risk_score = np.clip(risk_score, 0, 10)
     
@@ -117,7 +110,7 @@ def predict_risk_score(spot_name):
         'risk_score': round(risk_score, 2),
         'risk_level': risk_level,
         'flag_color': flag_color,
-        'confidence': round(confidence, 2),
+        'confidence': round(risk_level_proba[risk_level_int], 2),
         'has_recent_hazards': hazard_boost > 0
     }
 

@@ -4,8 +4,11 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js",
+    "start": "expo start",
+    "android": "expo start --android",
+    "android-device": "expo start --android --device",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
     "dev": "nodemon server.js"
   },
   "keywords": [],

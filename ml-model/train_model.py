@@ -127,9 +127,8 @@ def train_risk_model():
     
     # Train Gradient Boosting for risk score regression
     print("Training Gradient Boosting Regressor...")
-    from sklearn.ensemble import GradientBoostingRegressor
-    gb_model = GradientBoostingRegressor(n_estimators=100, random_state=42, max_depth=5)
-    gb_model.fit(X_train, y_train_score)
+    gb_model = GradientBoostingClassifier(n_estimators=100, random_state=42, max_depth=5)
+    gb_model.fit(X_train, y_train_level)
     
     # Save models
     joblib.dump(rf_model, 'models/risk_classifier.pkl')
