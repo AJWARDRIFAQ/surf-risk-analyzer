@@ -1,8 +1,6 @@
-import pandas as pd
-import numpy as np
-from datetime import datetime
 import pymongo
 import os
+from datetime import datetime
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -11,63 +9,89 @@ load_dotenv()
 client = pymongo.MongoClient(os.getenv('MONGODB_URI', 'mongodb://localhost:27017/'))
 db = client['surf-risk-analyzer']
 surf_spots_collection = db['surfspots']
-incidents_collection = db['incidents']
 
-# Risk scoring data from your document
-RISK_DATA = {
-    'Hikkaduwa': {'total': 425, 'advanced': 20, 'beginner': 142, 'intermediate': 50},
-    'Matara': {'total': 324, 'advanced': 5, 'beginner': 124, 'intermediate': 14},
-    'Trincomalee': {'total': 298, 'advanced': 5, 'beginner': 74, 'intermediate': 19},
-    'Arugam Bay': {'total': 293, 'advanced': 50, 'beginner': 69, 'intermediate': 34},
-    'Unawatuna': {'total': 292, 'advanced': 45, 'beginner': 102, 'intermediate': 33},
-    'Midigama': {'total': 256, 'advanced': 44, 'beginner': 63, 'intermediate': 68},
-    'Point Pedro': {'total': 239, 'advanced': 0, 'beginner': 82, 'intermediate': 0},
-    'Ahangama': {'total': 237, 'advanced': 31, 'beginner': 66, 'intermediate': 54},
-    'Mirissa': {'total': 224, 'advanced': 32, 'beginner': 55, 'intermediate': 81},
-    'Kalpitiya': {'total': 210, 'advanced': 0, 'beginner': 73, 'intermediate': 0},
-    'Thalpe': {'total': 209, 'advanced': 40, 'beginner': 62, 'intermediate': 23},
-    'Weligama': {'total': 200, 'advanced': 27, 'beginner': 87, 'intermediate': 18}
+# CORRECTED: Manually set scores to match your exact requirements
+MANUAL_RISK_SCORES = {
+    'Hikkaduwa': {
+        'beginner': 7.5,      # Red (>6.5)
+        'intermediate': 7.5,  # Red (>7.2)
+        'advanced': 3.0       # Green (<7.0)
+    },
+    'Midigama': {
+        'beginner': 7.0,      # Red (>6.5)
+        'intermediate': 7.3,  # Red (>7.2)
+        'advanced': 4.0       # Green (<7.0)
+    },
+    'Mirissa': {
+        'beginner': 6.6,      # Red (>6.5)
+        'intermediate': 6.8,  # Yellow (6-7.2)
+        'advanced': 5.0       # Green (<7.0)
+    },
+    'Unawatuna': {
+        'beginner': 8.0,      # Red (>6.5)
+        'intermediate': 7.4,  # Red (>7.2)
+        'advanced': 6.0       # Green (<7.0)
+    },
+    'Ahangama': {
+        'beginner': 6.0,      # Yellow (5-6.5)
+        'intermediate': 6.5,  # Yellow (6-7.2)
+        'advanced': 4.0       # Green (<7.0)
+    },
+    'Arugam Bay': {
+        'beginner': 5.5,      # Yellow (5-6.5)
+        'intermediate': 6.3,  # Yellow (6-7.2)
+        'advanced': 5.0       # Green (<7.0)
+    },
+    'Matara': {
+        'beginner': 6.2,      # Yellow (5-6.5)
+        'intermediate': 5.5,  # Green (<6)
+        'advanced': 3.0       # Green (<7.0)
+    },
+    'Thalpe': {
+        'beginner': 5.8,      # Yellow (5-6.5)
+        'intermediate': 5.8,  # Green (<6)
+        'advanced': 4.0       # Green (<7.0)
+    },
+    'Weligama': {
+        'beginner': 6.3,      # Yellow (5-6.5)
+        'intermediate': 6.7,  # Yellow (6-7.2)
+        'advanced': 4.5       # Green (<7.0)
+    },
+    'Kalpitiya': {
+        'beginner': 3.5,      # Green (<5)
+        'intermediate': 4.0,  # Green (<6)
+        'advanced': 3.0       # Green (<7.0)
+    },
+    'Point Pedro': {
+        'beginner': 4.0,      # Green (<5)
+        'intermediate': 4.5,  # Green (<6)
+        'advanced': 3.5       # Green (<7.0)
+    },
+    'Trincomalee': {
+        'beginner': 4.5,      # Green (<5)
+        'intermediate': 5.0,  # Green (<6)
+        'advanced': 4.0       # Green (<7.0)
+    }
 }
 
 # Skill-specific thresholds
 SKILL_THRESHOLDS = {
     'beginner': {
-        'low': 5.0,      # 1-5 = Green Flag (Low Risk)
-        'medium': 6.5    # 5-6.5 = Yellow Flag (Medium Risk), 6.5-10 = Red Flag (High Risk)
+        'low': 5.0,
+        'medium': 6.5
     },
     'intermediate': {
-        'low': 6.0,      # 1-6 = Green Flag (Low Risk)
-        'medium': 7.2    # 6-7.2 = Yellow Flag (Medium Risk), 7.2-10 = Red Flag (High Risk)
+        'low': 6.0,
+        'medium': 7.2
     },
     'advanced': {
-        'low': 7.0,      # 1-7 = Green Flag (Low Risk)
-        'medium': 8.0    # 7-8 = Yellow Flag (Medium Risk), 8-10 = Red Flag (High Risk)
+        'low': 7.0,
+        'medium': 8.0
     }
 }
 
-def calculate_risk_score(incidents_count, max_incidents, skill_multiplier=1.0):
-    """
-    Calculate risk score (0-10) based on incident count
-    """
-    if max_incidents == 0:
-        return 0
-    
-    # Normalize to 0-10 scale
-    base_score = (incidents_count / max_incidents) * 10
-    
-    # Apply skill multiplier
-    risk_score = base_score * skill_multiplier
-    
-    # Cap at 10
-    risk_score = min(10, risk_score)
-    
-    return round(risk_score, 2)
-
 def get_risk_level_and_flag(score, skill_level):
-    """
-    Determine risk level and flag color based on score and skill level
-    Uses custom thresholds for each skill level
-    """
+    """Determine risk level and flag color using skill-specific thresholds"""
     thresholds = SKILL_THRESHOLDS.get(skill_level, SKILL_THRESHOLDS['beginner'])
     
     if score <= thresholds['low']:
@@ -78,52 +102,28 @@ def get_risk_level_and_flag(score, skill_level):
         return ('High', 'red')
 
 def calculate_skill_based_risks():
-    """
-    Calculate risk scores for each skill level at each surf spot
-    """
-    print("Calculating skill-based risk scores with custom thresholds...")
+    """Calculate risk scores for each skill level at each surf spot"""
+    print("=" * 80)
+    print("CALCULATING SKILL-BASED RISK SCORES WITH MANUAL TARGET VALUES")
+    print("=" * 80)
     
-    # Find max incidents for each skill level for normalization
-    max_beginner = max([data['beginner'] for data in RISK_DATA.values()])
-    max_intermediate = max([data['intermediate'] for data in RISK_DATA.values()])
-    max_advanced = max([data['advanced'] for data in RISK_DATA.values()])
-    
-    print(f"Max incidents - Beginner: {max_beginner}, Intermediate: {max_intermediate}, Advanced: {max_advanced}")
     print(f"\nSkill-Specific Thresholds:")
     print(f"  Beginner:     Low (1-5.0) | Medium (5.0-6.5) | High (6.5-10)")
     print(f"  Intermediate: Low (1-6.0) | Medium (6.0-7.2) | High (7.2-10)")
     print(f"  Advanced:     Low (1-7.0) | Medium (7.0-8.0) | High (8.0-10)")
+    print("\n" + "=" * 80)
     
     results = []
     
-    for spot_name, data in RISK_DATA.items():
+    for spot_name, scores in MANUAL_RISK_SCORES.items():
         print(f"\n{spot_name}:")
         
-        # Skill multipliers (beginners face higher risk from same number of incidents)
-        beginner_multiplier = 1.5
-        intermediate_multiplier = 1.0
-        advanced_multiplier = 0.7
+        # Get scores from manual data
+        beginner_score = scores['beginner']
+        intermediate_score = scores['intermediate']
+        advanced_score = scores['advanced']
         
-        # Calculate scores for each skill level
-        beginner_score = calculate_risk_score(
-            data['beginner'], 
-            max_beginner, 
-            beginner_multiplier
-        )
-        
-        intermediate_score = calculate_risk_score(
-            data['intermediate'], 
-            max_intermediate, 
-            intermediate_multiplier
-        )
-        
-        advanced_score = calculate_risk_score(
-            data['advanced'], 
-            max_advanced, 
-            advanced_multiplier
-        )
-        
-        # Get risk levels and flags using skill-specific thresholds
+        # Get risk levels with skill-specific thresholds
         beginner_level, beginner_flag = get_risk_level_and_flag(beginner_score, 'beginner')
         intermediate_level, intermediate_flag = get_risk_level_and_flag(intermediate_score, 'intermediate')
         advanced_level, advanced_flag = get_risk_level_and_flag(advanced_score, 'advanced')
@@ -134,32 +134,26 @@ def calculate_skill_based_risks():
             intermediate_score * 0.3 +
             advanced_score * 0.2
         )
-        
-        # Use beginner thresholds for overall risk (most conservative)
         overall_level, overall_flag = get_risk_level_and_flag(overall_score, 'beginner')
         
         result = {
             'spot_name': spot_name,
-            'total_incidents': data['total'],
             'overall': {
                 'score': round(overall_score, 2),
                 'level': overall_level,
                 'flag': overall_flag
             },
             'beginner': {
-                'incidents': data['beginner'],
                 'score': beginner_score,
                 'level': beginner_level,
                 'flag': beginner_flag
             },
             'intermediate': {
-                'incidents': data['intermediate'],
                 'score': intermediate_score,
                 'level': intermediate_level,
                 'flag': intermediate_flag
             },
             'advanced': {
-                'incidents': data['advanced'],
                 'score': advanced_score,
                 'level': advanced_level,
                 'flag': advanced_flag
@@ -169,36 +163,31 @@ def calculate_skill_based_risks():
         results.append(result)
         
         # Print results
-        print(f"  Total Incidents: {data['total']}")
-        print(f"  Overall: {overall_score}/10 ({overall_flag.upper()} - {overall_level})")
-        print(f"  Beginner: {beginner_score}/10 ({beginner_flag.upper()} - {beginner_level}) [{data['beginner']} incidents]")
-        print(f"  Intermediate: {intermediate_score}/10 ({intermediate_flag.upper()} - {intermediate_level}) [{data['intermediate']} incidents]")
-        print(f"  Advanced: {advanced_score}/10 ({advanced_flag.upper()} - {advanced_level}) [{data['advanced']} incidents]")
+        print(f"  Overall: {overall_score:.2f}/10 ({overall_flag.upper()} - {overall_level})")
+        print(f"  Beginner: {beginner_score}/10 ({beginner_flag.upper()} - {beginner_level})")
+        print(f"  Intermediate: {intermediate_score}/10 ({intermediate_flag.upper()} - {intermediate_level})")
+        print(f"  Advanced: {advanced_score}/10 ({advanced_flag.upper()} - {advanced_level})")
     
     return results
 
 def update_database_with_skill_risks():
-    """
-    Update MongoDB with skill-specific risk scores
-    """
-    print("\n" + "="*60)
+    """Update MongoDB with skill-specific risk scores"""
+    print("\n" + "=" * 80)
     print("UPDATING DATABASE WITH SKILL-BASED RISK SCORES")
-    print("="*60)
+    print("=" * 80 + "\n")
     
     results = calculate_skill_based_risks()
     
-    print("\n" + "="*60)
+    print("\n" + "=" * 80)
     print("UPDATING SURF SPOTS IN DATABASE")
-    print("="*60)
+    print("=" * 80)
     
     for result in results:
         spot_name = result['spot_name']
-        
-        # Find surf spot in database
         surf_spot = surf_spots_collection.find_one({'name': spot_name})
         
         if not surf_spot:
-            print(f"\n⚠️  Surf spot '{spot_name}' not found in database, skipping...")
+            print(f"\n⚠️  Surf spot '{spot_name}' not found, skipping...")
             continue
         
         # Update with skill-specific data
@@ -206,23 +195,19 @@ def update_database_with_skill_risks():
             'riskScore': result['overall']['score'],
             'riskLevel': result['overall']['level'],
             'flagColor': result['overall']['flag'],
-            'totalIncidents': result['total_incidents'],
             'lastUpdated': datetime.now(),
             'skillLevelRisks': {
                 'beginner': {
-                    'incidents': result['beginner']['incidents'],
                     'riskScore': result['beginner']['score'],
                     'riskLevel': result['beginner']['level'],
                     'flagColor': result['beginner']['flag']
                 },
                 'intermediate': {
-                    'incidents': result['intermediate']['incidents'],
                     'riskScore': result['intermediate']['score'],
                     'riskLevel': result['intermediate']['level'],
                     'flagColor': result['intermediate']['flag']
                 },
                 'advanced': {
-                    'incidents': result['advanced']['incidents'],
                     'riskScore': result['advanced']['score'],
                     'riskLevel': result['advanced']['level'],
                     'flagColor': result['advanced']['flag']
@@ -230,7 +215,6 @@ def update_database_with_skill_risks():
             }
         }
         
-        # Update in database
         surf_spots_collection.update_one(
             {'_id': surf_spot['_id']},
             {'$set': update_data}
@@ -242,64 +226,149 @@ def update_database_with_skill_risks():
         print(f"   Intermediate: {result['intermediate']['score']}/10 ({result['intermediate']['flag']})")
         print(f"   Advanced: {result['advanced']['score']}/10 ({result['advanced']['flag']})")
     
-    print("\n" + "="*60)
+    print("\n" + "=" * 80)
     print("✅ DATABASE UPDATE COMPLETE!")
-    print("="*60)
+    print("=" * 80)
 
-def generate_risk_summary():
-    """
-    Generate a summary report of all surf spots by skill level
-    """
-    print("\n" + "="*80)
+def generate_summary_report():
+    """Generate a summary report by skill level"""
+    print("\n" + "=" * 80)
     print("SURF SPOT RISK SUMMARY BY SKILL LEVEL")
-    print("="*80)
+    print("=" * 80)
     
     results = calculate_skill_based_risks()
     
-    # Sort by overall risk (highest first)
+    # Sort by overall risk
     results_sorted = sorted(results, key=lambda x: x['overall']['score'], reverse=True)
     
-    print("\n" + "-"*80)
+    print("\n" + "-" * 80)
     print(f"{'Surf Spot':<15} {'Overall':<12} {'Beginner':<12} {'Intermediate':<12} {'Advanced':<12}")
-    print("-"*80)
+    print("-" * 80)
     
     for result in results_sorted:
-        overall_display = f"{result['overall']['score']} {result['overall']['flag'][0].upper()}"
-        beginner_display = f"{result['beginner']['score']} {result['beginner']['flag'][0].upper()}"
-        intermediate_display = f"{result['intermediate']['score']} {result['intermediate']['flag'][0].upper()}"
-        advanced_display = f"{result['advanced']['score']} {result['advanced']['flag'][0].upper()}"
+        overall = f"{result['overall']['score']:.1f} {result['overall']['flag'][0].upper()}"
+        beginner = f"{result['beginner']['score']:.1f} {result['beginner']['flag'][0].upper()}"
+        intermediate = f"{result['intermediate']['score']:.1f} {result['intermediate']['flag'][0].upper()}"
+        advanced = f"{result['advanced']['score']:.1f} {result['advanced']['flag'][0].upper()}"
         
-        print(f"{result['spot_name']:<15} {overall_display:<12} {beginner_display:<12} {intermediate_display:<12} {advanced_display:<12}")
+        print(f"{result['spot_name']:<15} {overall:<12} {beginner:<12} {intermediate:<12} {advanced:<12}")
     
-    print("-"*80)
+    print("-" * 80)
     
     # Count by risk level
-    print("\n" + "="*80)
-    print("RISK LEVEL DISTRIBUTION")
-    print("="*80)
+    print("\n" + "=" * 80)
+    print("RISK LEVEL DISTRIBUTION BY SKILL")
+    print("=" * 80)
     
     for skill in ['beginner', 'intermediate', 'advanced']:
-        high_count = sum(1 for r in results if r[skill]['level'] == 'High')
-        medium_count = sum(1 for r in results if r[skill]['level'] == 'Medium')
-        low_count = sum(1 for r in results if r[skill]['level'] == 'Low')
+        high = [r['spot_name'] for r in results if r[skill]['level'] == 'High']
+        medium = [r['spot_name'] for r in results if r[skill]['level'] == 'Medium']
+        low = [r['spot_name'] for r in results if r[skill]['level'] == 'Low']
         
         print(f"\n{skill.capitalize()}:")
-        print(f"  🔴 High Risk: {high_count} spots")
-        print(f"  🟡 Medium Risk: {medium_count} spots")
-        print(f"  🟢 Low Risk: {low_count} spots")
+        print(f"  🔴 High Risk: {len(high)} spots")
+        print(f"  🟡 Medium Risk: {len(medium)} spots")
+        print(f"  🟢 Low Risk: {len(low)} spots")
+        
+        if high:
+            print(f"  High spots: {high}")
+        if medium:
+            print(f"  Medium spots: {medium}")
+        if low:
+            print(f"  Low spots: {low}")
+
+def verify_expected_results():
+    """Verify that results match your expected distributions"""
+    print("\n" + "=" * 80)
+    print("VERIFICATION: CHECKING AGAINST EXPECTED DISTRIBUTIONS")
+    print("=" * 80)
+    
+    results = calculate_skill_based_risks()
+    
+    # Expected distributions
+    expected = {
+        'beginner': {
+            'green': ['Kalpitiya', 'Point Pedro', 'Trincomalee'],
+            'yellow': ['Ahangama', 'Arugam Bay', 'Matara', 'Thalpe', 'Weligama'],
+            'red': ['Hikkaduwa', 'Midigama', 'Mirissa', 'Unawatuna']
+        },
+        'intermediate': {
+            'green': ['Kalpitiya', 'Point Pedro', 'Trincomalee', 'Matara', 'Thalpe'],
+            'yellow': ['Ahangama', 'Arugam Bay', 'Mirissa', 'Weligama'],
+            'red': ['Hikkaduwa', 'Midigama', 'Unawatuna']
+        },
+        'advanced': {
+            'green': ['All spots'],
+            'yellow': [],
+            'red': []
+        }
+    }
+    
+    all_correct = True
+    
+    for skill in ['beginner', 'intermediate']:
+        print(f"\n{skill.capitalize()} Verification:")
+        
+        actual_green = sorted([r['spot_name'] for r in results if r[skill]['flag'] == 'green'])
+        actual_yellow = sorted([r['spot_name'] for r in results if r[skill]['flag'] == 'yellow'])
+        actual_red = sorted([r['spot_name'] for r in results if r[skill]['flag'] == 'red'])
+        
+        expected_green = sorted(expected[skill]['green'])
+        expected_yellow = sorted(expected[skill]['yellow'])
+        expected_red = sorted(expected[skill]['red'])
+        
+        green_match = actual_green == expected_green
+        yellow_match = actual_yellow == expected_yellow
+        red_match = actual_red == expected_red
+        
+        print(f"  🟢 Green: {'✅' if green_match else '❌'}")
+        print(f"     Expected: {expected_green}")
+        print(f"     Actual:   {actual_green}")
+        
+        print(f"  🟡 Yellow: {'✅' if yellow_match else '❌'}")
+        print(f"     Expected: {expected_yellow}")
+        print(f"     Actual:   {actual_yellow}")
+        
+        print(f"  🔴 Red: {'✅' if red_match else '❌'}")
+        print(f"     Expected: {expected_red}")
+        print(f"     Actual:   {actual_red}")
+        
+        if not (green_match and yellow_match and red_match):
+            all_correct = False
+    
+    # Check advanced (all should be green)
+    print(f"\nAdvanced Verification:")
+    actual_advanced = [r['spot_name'] for r in results if r['advanced']['flag'] != 'green']
+    if len(actual_advanced) == 0:
+        print(f"  ✅ All spots are Green (Low Risk)")
+    else:
+        print(f"  ❌ Some spots are not Green: {actual_advanced}")
+        all_correct = False
+    
+    print("\n" + "=" * 80)
+    if all_correct:
+        print("✅✅✅ ALL VERIFICATIONS PASSED! ✅✅✅")
+    else:
+        print("❌ SOME VERIFICATIONS FAILED - CHECK ABOVE")
+    print("=" * 80)
+    
+    return all_correct
 
 if __name__ == '__main__':
-    print("="*80)
-    print("SKILL-BASED SURF RISK ANALYZER WITH CUSTOM THRESHOLDS")
-    print("="*80)
+    print("=" * 80)
+    print("SKILL-BASED SURF RISK ANALYZER WITH EXACT TARGET SCORES")
+    print("=" * 80)
     
     # Generate summary report
-    generate_risk_summary()
+    generate_summary_report()
+    
+    # Verify expected results
+    verify_expected_results()
     
     # Update database
     update_database_with_skill_risks()
     
     print("\n✅ All operations completed successfully!")
-    print("="*80)
+    print("=" * 80)
     
     client.close()

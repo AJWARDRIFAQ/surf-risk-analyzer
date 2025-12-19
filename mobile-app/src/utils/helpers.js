@@ -1,5 +1,3 @@
-// ... (keep existing helpers)
-
 import { SKILL_RISK_THRESHOLDS } from './constants';
 
 // ==================== SKILL-SPECIFIC RISK HELPERS ====================
@@ -83,24 +81,24 @@ export const getRiskDescriptionForSkill = (score, skillLevel = 'overall') => {
   
   const descriptions = {
     beginner: {
-      Low: 'Ideal conditions for beginners (1-5)',
-      Medium: 'Caution advised for beginners (5-6.5)',
+      Low: 'Safe for beginners (1-5)',
+      Medium: 'Caution for beginners (5-6.5)',
       High: 'Dangerous for beginners (6.5-10)'
     },
     intermediate: {
-      Low: 'Safe for intermediate surfers (1-6)',
-      Medium: 'Moderate risk for intermediates (6-7.2)',
-      High: 'High risk for intermediates (7.2-10)'
+      Low: 'Safe for intermediates (1-6)',
+      Medium: 'Moderate risk (6-7.2)',
+      High: 'High risk (7.2-10)'
     },
     advanced: {
-      Low: 'Low risk for advanced surfers (1-7)',
-      Medium: 'Some caution for advanced (7-8)',
-      High: 'Challenging even for advanced (8-10)'
+      Low: 'Low risk for advanced (1-7)',
+      Medium: 'Moderate challenge (7-8)',
+      High: 'High risk (8-10)'
     },
     overall: {
       Low: 'Generally safe conditions',
-      Medium: 'Caution advised - check conditions',
-      High: 'Dangerous conditions - avoid if possible'
+      Medium: 'Caution advised',
+      High: 'Dangerous conditions'
     }
   };
   
@@ -133,4 +131,79 @@ export const formatRiskScoreForSkill = (score, skillLevel = 'overall') => {
   return `${score}/10 ${riskLevel.emoji} ${riskLevel.level}`;
 };
 
-// ... (keep rest of existing helpers)
+/**
+ * Get marker color based on flag
+ * @param {string} flagColor - 'green', 'yellow', or 'red'
+ * @returns {string} Hex color
+ */
+export const getMarkerColor = (flagColor) => {
+  switch(flagColor) {
+    case 'green': return '#10b981';
+    case 'yellow': return '#f59e0b';
+    case 'red': return '#ef4444';
+    default: return '#6b7280';
+  }
+};
+
+/**
+ * Format date relative to now
+ * @param {string|Date} date - Date to format
+ * @returns {string} Formatted date
+ */
+export const formatRelativeDate = (date) => {
+  const now = new Date();
+  const target = new Date(date);
+  const diffMs = now - target;
+  const diffHrs = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffHrs / 24);
+
+  if (diffHrs < 1) return 'Just now';
+  if (diffHrs < 24) return `${diffHrs}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return target.toLocaleDateString();
+};
+
+/**
+ * Validate email format
+ * @param {string} email - Email to validate
+ * @returns {boolean} Is valid
+ */
+export const isValidEmail = (email) => {
+  const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return regex.test(email);
+};
+
+/**
+ * Format file size
+ * @param {number} bytes - File size in bytes
+ * @returns {string} Formatted size
+ */
+export const formatFileSize = (bytes) => {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+};
+
+// Additional helper for backend compatibility
+export const calculateSkillRiskLevel = (score, skillLevel) => {
+  const risk = getRiskLevelForSkill(score, skillLevel);
+  return {
+    riskScore: score,
+    riskLevel: risk.level,
+    flagColor: risk.flag
+  };
+};
+
+export default {
+  getRiskLevelForSkill,
+  getFlagColorForSkill,
+  getRiskEmojiForSkill,
+  getRiskDescriptionForSkill,
+  getThresholdRanges,
+  formatRiskScoreForSkill,
+  calculateSkillRiskLevel,
+  getMarkerColor,
+  formatRelativeDate,
+  isValidEmail,
+  formatFileSize,
+};

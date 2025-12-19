@@ -11,6 +11,12 @@ import {
 } from 'react-native';
 import MapView, { Marker, Callout } from 'react-native-maps';
 import { surfSpotsAPI } from '../services/api';
+import { 
+  getRiskLevelForSkill, 
+  getMarkerColor, 
+  formatRelativeDate,
+  getThresholdRanges 
+} from '../utils/helpers';
 
 export default function RiskAnalyzerScreen({ navigation }) {
   const [surfSpots, setSurfSpots] = useState([]);
@@ -41,24 +47,6 @@ export default function RiskAnalyzerScreen({ navigation }) {
     loadSurfSpots();
   };
 
-  const getFlagEmoji = (color) => {
-    switch(color) {
-      case 'green': return '🟢';
-      case 'yellow': return '🟡';
-      case 'red': return '🔴';
-      default: return '⚪';
-    }
-  };
-
-  const getMarkerColor = (flagColor) => {
-    switch(flagColor) {
-      case 'green': return '#10b981';
-      case 'yellow': return '#f59e0b';
-      case 'red': return '#ef4444';
-      default: return '#6b7280';
-    }
-  };
-
   const getRiskData = (spot) => {
     if (selectedSkillLevel === 'overall') {
       return {
@@ -69,12 +57,41 @@ export default function RiskAnalyzerScreen({ navigation }) {
       };
     } else {
       const skillData = spot.skillLevelRisks?.[selectedSkillLevel];
-      return skillData || {
+      if (skillData) {
+        return {
+          score: skillData.riskScore,
+          level: skillData.riskLevel,
+          flag: skillData.flagColor,
+          incidents: skillData.incidents
+        };
+      }
+      // Fallback to overall if skill data not available
+      return {
         score: spot.riskScore,
         level: spot.riskLevel,
         flag: spot.flagColor,
         incidents: 0
       };
+    }
+  };
+
+  const getSkillIcon = (skill) => {
+    switch(skill) {
+      case 'overall': return '📊';
+      case 'beginner': return '🏄‍♀️';
+      case 'intermediate': return '🏄';
+      case 'advanced': return '🏄‍♂️';
+      default: return '📊';
+    }
+  };
+
+  const getSkillLabel = (skill) => {
+    switch(skill) {
+      case 'overall': return 'Overall';
+      case 'beginner': return 'Beginner';
+      case 'intermediate': return 'Intermediate';
+      case 'advanced': return 'Advanced';
+      default: return 'Overall';
     }
   };
 
@@ -87,35 +104,54 @@ export default function RiskAnalyzerScreen({ navigation }) {
     );
   }
 
+  // Get threshold ranges for current skill level
+  const thresholds = getThresholdRanges(selectedSkillLevel);
+
   return (
     <View style={styles.container}>
       {/* Skill Level Selector */}
       <View style={styles.skillSelector}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {[
-            { value: 'overall', label: 'Overall', icon: '📊' },
-            { value: 'beginner', label: 'Beginner', icon: '🏄‍♀️' },
-            { value: 'intermediate', label: 'Intermediate', icon: '🏄' },
-            { value: 'advanced', label: 'Advanced', icon: '🏄‍♂️' }
-          ].map((skill) => (
+          {['overall', 'beginner', 'intermediate', 'advanced'].map((skill) => (
             <TouchableOpacity
-              key={skill.value}
+              key={skill}
               style={[
                 styles.skillButton,
-                selectedSkillLevel === skill.value && styles.skillButtonActive
+                selectedSkillLevel === skill && styles.skillButtonActive
               ]}
-              onPress={() => setSelectedSkillLevel(skill.value)}
+              onPress={() => setSelectedSkillLevel(skill)}
             >
-              <Text style={styles.skillIcon}>{skill.icon}</Text>
+              <Text style={styles.skillIcon}>{getSkillIcon(skill)}</Text>
               <Text style={[
                 styles.skillButtonText,
-                selectedSkillLevel === skill.value && styles.skillButtonTextActive
+                selectedSkillLevel === skill && styles.skillButtonTextActive
               ]}>
-                {skill.label}
+                {getSkillLabel(skill)}
               </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
+      </View>
+
+      {/* Threshold Info Banner */}
+      <View style={styles.thresholdBanner}>
+        <Text style={styles.thresholdTitle}>
+          {getSkillLabel(selectedSkillLevel)} Risk Thresholds
+        </Text>
+        <View style={styles.thresholdRow}>
+          <View style={styles.thresholdItem}>
+            <Text style={styles.thresholdEmoji}>🟢</Text>
+            <Text style={styles.thresholdText}>{thresholds.low.label}</Text>
+          </View>
+          <View style={styles.thresholdItem}>
+            <Text style={styles.thresholdEmoji}>🟡</Text>
+            <Text style={styles.thresholdText}>{thresholds.medium.label}</Text>
+          </View>
+          <View style={styles.thresholdItem}>
+            <Text style={styles.thresholdEmoji}>🔴</Text>
+            <Text style={styles.thresholdText}>{thresholds.high.label}</Text>
+          </View>
+        </View>
       </View>
 
       {/* Map View */}
@@ -131,6 +167,8 @@ export default function RiskAnalyzerScreen({ navigation }) {
         >
           {surfSpots.map((spot) => {
             const riskData = getRiskData(spot);
+            const riskLevel = getRiskLevelForSkill(riskData.score, selectedSkillLevel);
+            
             return (
               <Marker
                 key={spot._id}
@@ -144,10 +182,12 @@ export default function RiskAnalyzerScreen({ navigation }) {
                   <View style={styles.callout}>
                     <Text style={styles.calloutTitle}>{spot.name}</Text>
                     <Text style={styles.calloutSkill}>
-                      {selectedSkillLevel === 'overall' ? 'Overall Risk' : `${selectedSkillLevel.charAt(0).toUpperCase() + selectedSkillLevel.slice(1)} Risk`}
+                      {getSkillLabel(selectedSkillLevel)} Risk
                     </Text>
-                    <Text>{getFlagEmoji(riskData.flag)} {riskData.level}</Text>
-                    <Text>Score: {riskData.score}/10</Text>
+                    <Text style={styles.calloutRisk}>
+                      {riskLevel.emoji} {riskLevel.level}
+                    </Text>
+                    {/* Score and Incidents removed per design */}
                   </View>
                 </Callout>
               </Marker>
@@ -165,7 +205,7 @@ export default function RiskAnalyzerScreen({ navigation }) {
       >
         <View style={styles.header}>
           <Text style={styles.headerTitle}>
-            {selectedSkillLevel === 'overall' ? 'Overall' : selectedSkillLevel.charAt(0).toUpperCase() + selectedSkillLevel.slice(1)} Risk Status
+            {getSkillLabel(selectedSkillLevel)} Risk Status
           </Text>
           <TouchableOpacity style={styles.refreshButton} onPress={onRefresh}>
             <Text style={styles.refreshButtonText}>Refresh</Text>
@@ -174,60 +214,71 @@ export default function RiskAnalyzerScreen({ navigation }) {
 
         {surfSpots.map((spot) => {
           const riskData = getRiskData(spot);
+          const riskLevel = getRiskLevelForSkill(riskData.score, selectedSkillLevel);
+          
           return (
             <View
               key={spot._id}
               style={[
                 styles.spotCard,
-                { borderLeftColor: getMarkerColor(riskData.flag) }
+                { borderLeftColor: riskLevel.color }
               ]}
             >
               <View style={styles.spotHeader}>
                 <View style={styles.spotInfo}>
-                  <Text style={styles.spotName}>
-                    {selectedSkillLevel !== 'overall' && getFlagEmoji(riskData.flag)} {spot.name}
-                  </Text>
+                  <View style={styles.spotNameRow}>
+                    <Text style={styles.spotName}>{spot.name}</Text>
+                    <Text style={styles.spotEmoji}>{riskLevel.emoji}</Text>
+                  </View>
                   <Text style={styles.spotLocation}>{spot.location}</Text>
                   
-                  {selectedSkillLevel !== 'overall' && (
-                    <View style={[
-                      styles.riskBadge,
-                      { backgroundColor: riskData.level === 'High' ? '#fee2e2' : riskData.level === 'Medium' ? '#fef3c7' : '#d1fae5' }
+                  {/* Risk Badge */}
+                  <View style={[
+                    styles.riskBadge,
+                    { backgroundColor: riskLevel.bgColor }
+                  ]}>
+                    <Text style={[
+                      styles.riskBadgeText,
+                      { color: riskLevel.textColor }
                     ]}>
-                      <Text style={[
-                        styles.riskBadgeText,
-                        { color: riskData.level === 'High' ? '#991b1b' : riskData.level === 'Medium' ? '#92400e' : '#065f46' }
-                      ]}>
-                        {riskData.level} Risk
-                      </Text>
-                    </View>
-                  )}
+                      {riskLevel.level} Risk
+                    </Text>
+                  </View>
 
+                  {/* Skill-specific info removed: incidents and score hidden */}
+
+                  {/* Show all skill levels when viewing overall */}
                   {selectedSkillLevel === 'overall' && spot.skillLevelRisks && (
                     <View style={styles.skillBreakdown}>
                       <Text style={styles.skillBreakdownTitle}>By Skill Level:</Text>
-                      <Text style={styles.skillBreakdownItem}>
-                        🏄‍♀️ Beginner: {spot.skillLevelRisks.beginner?.riskScore}/10 {getFlagEmoji(spot.skillLevelRisks.beginner?.flagColor)}
-                      </Text>
-                      <Text style={styles.skillBreakdownItem}>
-                        🏄 Intermediate: {spot.skillLevelRisks.intermediate?.riskScore}/10 {getFlagEmoji(spot.skillLevelRisks.intermediate?.flagColor)}
-                      </Text>
-                      <Text style={styles.skillBreakdownItem}>
-                        🏄‍♂️ Advanced: {spot.skillLevelRisks.advanced?.riskScore}/10 {getFlagEmoji(spot.skillLevelRisks.advanced?.flagColor)}
-                      </Text>
+                      {['beginner', 'intermediate', 'advanced'].map((skill) => {
+                        const skillData = spot.skillLevelRisks[skill];
+                        if (!skillData) return null;
+                        
+                        const skillRisk = getRiskLevelForSkill(skillData.riskScore, skill);
+                        return (
+                          <Text key={skill} style={styles.skillBreakdownItem}>
+                            {getSkillIcon(skill)} {getSkillLabel(skill)}: {skillData.riskScore}/10 {skillRisk.emoji}
+                          </Text>
+                        );
+                      })}
                     </View>
                   )}
                 </View>
                 
-                <View style={styles.riskScore}>
-                  <Text style={styles.riskScoreValue}>{riskData.score}</Text>
+                {/* Large Risk Score Display */}
+                <View style={styles.riskScoreContainer}>
+                  <Text style={[styles.riskScoreValue, { color: riskLevel.color }]}>
+                    {riskData.score}
+                  </Text>
                   <Text style={styles.riskScoreLabel}>/ 10</Text>
                 </View>
               </View>
 
+              {/* Footer */}
               <View style={styles.spotFooter}>
                 <Text style={styles.footerText}>
-                  Updated: {new Date(spot.lastUpdated).toLocaleDateString()}
+                  Updated: {formatRelativeDate(spot.lastUpdated)}
                 </Text>
               </View>
             </View>
@@ -236,29 +287,49 @@ export default function RiskAnalyzerScreen({ navigation }) {
 
         {/* Legend */}
         <View style={styles.legend}>
-          <Text style={styles.legendTitle}>Risk Level Guide</Text>
+          <Text style={styles.legendTitle}>
+            {getSkillLabel(selectedSkillLevel)} Risk Guide
+          </Text>
           
           <View style={styles.legendItem}>
             <Text style={styles.legendEmoji}>🟢</Text>
-            <View>
+            <View style={styles.legendContent}>
               <Text style={styles.legendLabel}>Green Flag - Low Risk</Text>
-              <Text style={styles.legendDesc}>Safe for this skill level</Text>
+              <Text style={styles.legendRange}>Range: {thresholds.low.label}</Text>
+              <Text style={styles.legendDesc}>
+                {selectedSkillLevel === 'beginner' && 'Ideal conditions for beginners'}
+                {selectedSkillLevel === 'intermediate' && 'Safe for intermediate surfers'}
+                {selectedSkillLevel === 'advanced' && 'Low risk for advanced surfers'}
+                {selectedSkillLevel === 'overall' && 'Generally safe conditions'}
+              </Text>
             </View>
           </View>
 
           <View style={styles.legendItem}>
             <Text style={styles.legendEmoji}>🟡</Text>
-            <View>
+            <View style={styles.legendContent}>
               <Text style={styles.legendLabel}>Yellow Flag - Medium Risk</Text>
-              <Text style={styles.legendDesc}>Caution advised for this skill level</Text>
+              <Text style={styles.legendRange}>Range: {thresholds.medium.label}</Text>
+              <Text style={styles.legendDesc}>
+                {selectedSkillLevel === 'beginner' && 'Caution advised for beginners'}
+                {selectedSkillLevel === 'intermediate' && 'Moderate risk for intermediates'}
+                {selectedSkillLevel === 'advanced' && 'Some caution for advanced'}
+                {selectedSkillLevel === 'overall' && 'Caution advised - check conditions'}
+              </Text>
             </View>
           </View>
 
           <View style={styles.legendItem}>
             <Text style={styles.legendEmoji}>🔴</Text>
-            <View>
+            <View style={styles.legendContent}>
               <Text style={styles.legendLabel}>Red Flag - High Risk</Text>
-              <Text style={styles.legendDesc}>Dangerous for this skill level</Text>
+              <Text style={styles.legendRange}>Range: {thresholds.high.label}</Text>
+              <Text style={styles.legendDesc}>
+                {selectedSkillLevel === 'beginner' && 'Dangerous for beginners - avoid'}
+                {selectedSkillLevel === 'intermediate' && 'High risk for intermediates'}
+                {selectedSkillLevel === 'advanced' && 'Challenging even for advanced'}
+                {selectedSkillLevel === 'overall' && 'Dangerous conditions - avoid'}
+              </Text>
             </View>
           </View>
         </View>
@@ -317,11 +388,44 @@ const styles = StyleSheet.create({
     color: '#0891b2'
   },
   
-  mapContainer: { height: '35%' },
+  thresholdBanner: {
+    backgroundColor: '#dbeafe',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#93c5fd'
+  },
+  thresholdTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1e40af',
+    marginBottom: 8,
+    textAlign: 'center'
+  },
+  thresholdRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around'
+  },
+  thresholdItem: {
+    alignItems: 'center'
+  },
+  thresholdEmoji: {
+    fontSize: 20,
+    marginBottom: 4
+  },
+  thresholdText: {
+    fontSize: 11,
+    color: '#1e40af',
+    fontWeight: '500'
+  },
+  
+  mapContainer: { height: '30%' },
   map: { flex: 1 },
   callout: { padding: 8, minWidth: 150 },
-  calloutTitle: { fontWeight: 'bold', fontSize: 16, marginBottom: 4 },
+  calloutTitle: { fontWeight: 'bold', fontSize: 16, marginBottom: 4, color: '#1f2937' },
   calloutSkill: { fontSize: 12, color: '#6b7280', marginBottom: 4 },
+  calloutRisk: { fontSize: 14, fontWeight: '600', marginBottom: 2 },
+  calloutScore: { fontSize: 13, color: '#374151', marginBottom: 2 },
+  calloutIncidents: { fontSize: 12, color: '#6b7280' },
   
   listContainer: { flex: 1, padding: 16 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
@@ -329,13 +433,60 @@ const styles = StyleSheet.create({
   refreshButton: { backgroundColor: '#0891b2', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 },
   refreshButtonText: { color: 'white', fontWeight: '600', fontSize: 13 },
   
-  spotCard: { backgroundColor: 'white', borderRadius: 12, padding: 16, marginBottom: 12, borderLeftWidth: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 3, elevation: 3 },
+  spotCard: { 
+    backgroundColor: 'white', 
+    borderRadius: 12, 
+    padding: 16, 
+    marginBottom: 12, 
+    borderLeftWidth: 4,
+    shadowColor: '#000', 
+    shadowOffset: { width: 0, height: 2 }, 
+    shadowOpacity: 0.1, 
+    shadowRadius: 3, 
+    elevation: 3 
+  },
   spotHeader: { flexDirection: 'row', justifyContent: 'space-between' },
   spotInfo: { flex: 1 },
-  spotName: { fontSize: 17, fontWeight: 'bold', color: '#1f2937', marginBottom: 4 },
+  spotNameRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+  spotName: { fontSize: 17, fontWeight: 'bold', color: '#1f2937', marginRight: 8 },
+  spotEmoji: { fontSize: 20 },
   spotLocation: { fontSize: 13, color: '#6b7280', marginBottom: 8 },
-  riskBadge: { paddingVertical: 4, paddingHorizontal: 12, borderRadius: 8, alignSelf: 'flex-start', marginBottom: 8 },
+  
+  riskBadge: { 
+    paddingVertical: 4, 
+    paddingHorizontal: 12, 
+    borderRadius: 8, 
+    alignSelf: 'flex-start', 
+    marginBottom: 12 
+  },
   riskBadgeText: { fontSize: 12, fontWeight: '600' },
+  
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#f3f4f6'
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center'
+  },
+  statLabel: {
+    fontSize: 11,
+    color: '#9ca3af',
+    marginBottom: 4
+  },
+  statValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#374151'
+  },
+  statDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: '#e5e7eb'
+  },
   
   skillBreakdown: { 
     marginTop: 12, 
@@ -355,20 +506,90 @@ const styles = StyleSheet.create({
     marginBottom: 3 
   },
   
-  riskScore: { alignItems: 'flex-end' },
-  riskScoreValue: { fontSize: 32, fontWeight: 'bold', color: '#1f2937' },
-  riskScoreLabel: { fontSize: 12, color: '#9ca3af' },
+  riskScoreContainer: { 
+    alignItems: 'flex-end',
+    justifyContent: 'center'
+  },
+  riskScoreValue: { 
+    fontSize: 36, 
+    fontWeight: 'bold'
+  },
+  riskScoreLabel: { 
+    fontSize: 14, 
+    color: '#9ca3af',
+    marginTop: -4
+  },
   
-  spotFooter: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#f3f4f6' },
-  footerText: { fontSize: 11, color: '#6b7280', marginBottom: 3 },
+  spotFooter: { 
+    marginTop: 12, 
+    paddingTop: 12, 
+    borderTopWidth: 1, 
+    borderTopColor: '#f3f4f6' 
+  },
+  footerText: { 
+    fontSize: 11, 
+    color: '#6b7280' 
+  },
   
-  legend: { backgroundColor: 'white', borderRadius: 12, padding: 16, marginTop: 8, marginBottom: 24 },
-  legendTitle: { fontSize: 16, fontWeight: 'bold', color: '#1f2937', marginBottom: 12 },
-  legendItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  legendEmoji: { fontSize: 24, marginRight: 12 },
-  legendLabel: { fontSize: 14, fontWeight: '600', color: '#1f2937' },
-  legendDesc: { fontSize: 12, color: '#6b7280' },
+  legend: { 
+    backgroundColor: 'white', 
+    borderRadius: 12, 
+    padding: 16, 
+    marginTop: 8, 
+    marginBottom: 24 
+  },
+  legendTitle: { 
+    fontSize: 16, 
+    fontWeight: 'bold', 
+    color: '#1f2937', 
+    marginBottom: 12 
+  },
+  legendItem: { 
+    flexDirection: 'row', 
+    alignItems: 'flex-start', 
+    marginBottom: 16 
+  },
+  legendEmoji: { 
+    fontSize: 24, 
+    marginRight: 12,
+    marginTop: 2
+  },
+  legendContent: {
+    flex: 1
+  },
+  legendLabel: { 
+    fontSize: 14, 
+    fontWeight: '600', 
+    color: '#1f2937',
+    marginBottom: 4
+  },
+  legendRange: {
+    fontSize: 12,
+    color: '#0891b2',
+    fontWeight: '600',
+    marginBottom: 4
+  },
+  legendDesc: { 
+    fontSize: 12, 
+    color: '#6b7280',
+    lineHeight: 16
+  },
   
-  fabButton: { position: 'absolute', bottom: 24, right: 24, backgroundColor: '#ef4444', width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 8 },
+  fabButton: { 
+    position: 'absolute', 
+    bottom: 24, 
+    right: 24, 
+    backgroundColor: '#ef4444', 
+    width: 64, 
+    height: 64, 
+    borderRadius: 32, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    shadowColor: '#000', 
+    shadowOffset: { width: 0, height: 4 }, 
+    shadowOpacity: 0.3, 
+    shadowRadius: 5, 
+    elevation: 8 
+  },
   fabText: { fontSize: 32 },
 });
