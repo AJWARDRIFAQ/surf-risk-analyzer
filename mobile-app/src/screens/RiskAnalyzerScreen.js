@@ -22,7 +22,7 @@ export default function RiskAnalyzerScreen({ navigation }) {
   const [surfSpots, setSurfSpots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedSkillLevel, setSelectedSkillLevel] = useState('overall');
+  const [selectedSkillLevel, setSelectedSkillLevel] = useState('beginner');
 
   useEffect(() => {
     loadSurfSpots();
@@ -48,50 +48,39 @@ export default function RiskAnalyzerScreen({ navigation }) {
   };
 
   const getRiskData = (spot) => {
-    if (selectedSkillLevel === 'overall') {
+    const skillData = spot.skillLevelRisks?.[selectedSkillLevel];
+    if (skillData) {
       return {
-        score: spot.riskScore,
-        level: spot.riskLevel,
-        flag: spot.flagColor,
-        incidents: spot.totalIncidents
-      };
-    } else {
-      const skillData = spot.skillLevelRisks?.[selectedSkillLevel];
-      if (skillData) {
-        return {
-          score: skillData.riskScore,
-          level: skillData.riskLevel,
-          flag: skillData.flagColor,
-          incidents: skillData.incidents
-        };
-      }
-      // Fallback to overall if skill data not available
-      return {
-        score: spot.riskScore,
-        level: spot.riskLevel,
-        flag: spot.flagColor,
-        incidents: 0
+        score: skillData.riskScore,
+        level: skillData.riskLevel,
+        flag: skillData.flagColor,
+        incidents: skillData.incidents || 0
       };
     }
+    // Fallback to overall if skill data not available
+    return {
+      score: spot.riskScore,
+      level: spot.riskLevel,
+      flag: spot.flagColor,
+      incidents: 0
+    };
   };
 
   const getSkillIcon = (skill) => {
     switch(skill) {
-      case 'overall': return '📊';
       case 'beginner': return '🏄‍♀️';
       case 'intermediate': return '🏄';
       case 'advanced': return '🏄‍♂️';
-      default: return '📊';
+      default: return '🏄‍♀️';
     }
   };
 
   const getSkillLabel = (skill) => {
     switch(skill) {
-      case 'overall': return 'Overall';
       case 'beginner': return 'Beginner';
       case 'intermediate': return 'Intermediate';
       case 'advanced': return 'Advanced';
-      default: return 'Overall';
+      default: return 'Beginner';
     }
   };
 
@@ -112,7 +101,7 @@ export default function RiskAnalyzerScreen({ navigation }) {
       {/* Skill Level Selector */}
       <View style={styles.skillSelector}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {['overall', 'beginner', 'intermediate', 'advanced'].map((skill) => (
+          {['beginner', 'intermediate', 'advanced'].map((skill) => (
             <TouchableOpacity
               key={skill}
               style={[
@@ -187,7 +176,12 @@ export default function RiskAnalyzerScreen({ navigation }) {
                     <Text style={styles.calloutRisk}>
                       {riskLevel.emoji} {riskLevel.level}
                     </Text>
-                    {/* Score and Incidents removed per design */}
+                    <Text style={styles.calloutScore}>
+                      Score: {riskData.score}/10
+                    </Text>
+                    <Text style={styles.calloutIncidents}>
+                      Incidents: {riskData.incidents}
+                    </Text>
                   </View>
                 </Callout>
               </Marker>
@@ -245,25 +239,12 @@ export default function RiskAnalyzerScreen({ navigation }) {
                     </Text>
                   </View>
 
-                  {/* Skill-specific info removed: incidents and score hidden */}
-
-                  {/* Show all skill levels when viewing overall */}
-                  {selectedSkillLevel === 'overall' && spot.skillLevelRisks && (
-                    <View style={styles.skillBreakdown}>
-                      <Text style={styles.skillBreakdownTitle}>By Skill Level:</Text>
-                      {['beginner', 'intermediate', 'advanced'].map((skill) => {
-                        const skillData = spot.skillLevelRisks[skill];
-                        if (!skillData) return null;
-                        
-                        const skillRisk = getRiskLevelForSkill(skillData.riskScore, skill);
-                        return (
-                          <Text key={skill} style={styles.skillBreakdownItem}>
-                            {getSkillIcon(skill)} {getSkillLabel(skill)}: {skillData.riskScore}/10 {skillRisk.emoji}
-                          </Text>
-                        );
-                      })}
-                    </View>
-                  )}
+                  {/* Risk description */}
+                  <Text style={styles.riskDescription}>
+                    {riskLevel.level === 'Low' && '✓ Safe conditions for this skill level'}
+                    {riskLevel.level === 'Medium' && '⚠ Caution advised - check conditions'}
+                    {riskLevel.level === 'High' && '⛔ Dangerous - avoid if possible'}
+                  </Text>
                 </View>
                 
                 {/* Large Risk Score Display */}
@@ -461,49 +442,11 @@ const styles = StyleSheet.create({
   },
   riskBadgeText: { fontSize: 12, fontWeight: '600' },
   
-  statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#f3f4f6'
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center'
-  },
-  statLabel: {
-    fontSize: 11,
-    color: '#9ca3af',
-    marginBottom: 4
-  },
-  statValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#374151'
-  },
-  statDivider: {
-    width: 1,
-    height: 30,
-    backgroundColor: '#e5e7eb'
-  },
-  
-  skillBreakdown: { 
-    marginTop: 12, 
-    paddingTop: 12, 
-    borderTopWidth: 1, 
-    borderTopColor: '#f3f4f6' 
-  },
-  skillBreakdownTitle: { 
-    fontSize: 12, 
-    fontWeight: '600', 
-    color: '#6b7280', 
-    marginBottom: 6 
-  },
-  skillBreakdownItem: { 
-    fontSize: 11, 
-    color: '#374151', 
-    marginBottom: 3 
+  riskDescription: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 8,
+    lineHeight: 18
   },
   
   riskScoreContainer: { 
