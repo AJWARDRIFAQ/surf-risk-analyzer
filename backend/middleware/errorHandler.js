@@ -7,8 +7,8 @@ const errorHandler = (err, req, res, next) => {
   // Handle specific known Mongoose error types
   if (err.name === 'ValidationError') {
     statusCode = 400;
-    const fields = Object.keys(err.errors);
-    message = `Validation failed for fields: ${fields.join(', ')}`;
+    const fields = err.errors && typeof err.errors === 'object' ? Object.keys(err.errors) : [];
+    message = fields.length > 0 ? `Validation failed for fields: ${fields.join(', ')}` : 'Validation failed';
   }
 
   if (err.code && err.code === 11000) {

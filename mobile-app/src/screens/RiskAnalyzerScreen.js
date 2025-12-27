@@ -10,19 +10,17 @@ import {
   StyleSheet,
 } from 'react-native';
 import MapView, { Marker, Callout } from 'react-native-maps';
-import { surfSpotsAPI } from '../services/api';
-import { 
-  getRiskLevelForSkill, 
-  getMarkerColor, 
-  formatRelativeDate,
-  getThresholdRanges 
-} from '../utils/helpers';
+
+// Only import API, we will define helpers locally to prevent crashes
+import { getSurfSpots } from '../services/api';
+import { API_BASE_URL } from '../utils/constants';
 
 export default function RiskAnalyzerScreen({ navigation }) {
   const [surfSpots, setSurfSpots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedSkillLevel, setSelectedSkillLevel] = useState('beginner');
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     loadSurfSpots();
@@ -30,12 +28,27 @@ export default function RiskAnalyzerScreen({ navigation }) {
 
   const loadSurfSpots = async () => {
     try {
-      const response = await surfSpotsAPI.getAll();
-      if (response.data.success) {
-        setSurfSpots(response.data.data);
+      if (!refreshing) setLoading(true);
+      setError(null);
+      
+      console.log('📡 Fetching surf spots from:', API_BASE_URL);
+      const response = await getSurfSpots();
+      
+      // Safety check for response structure
+      const spots = response.data || [];
+      console.log('✅ Surf spots loaded:', spots.length);
+      
+      if (spots.length > 0) {
+         // Debug: Log the first spot to ensure coordinates exist
+         console.log('🔍 First spot data sample:', JSON.stringify(spots[0], null, 2));
       }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to load surf spots');
+
+      setSurfSpots(spots);
+      
+    } catch (err) {
+      console.error('❌ Error loading surf spots:', err);
+      setError(err.message || 'Failed to load data');
+      Alert.alert('Connection Error', err.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -47,53 +60,89 @@ export default function RiskAnalyzerScreen({ navigation }) {
     loadSurfSpots();
   };
 
+  // --- LOCAL HELPERS (Moved here to prevent external file crashes) ---
+
+  const getMarkerColor = (flagColor) => {
+    // Default to red if undefined/null
+    return flagColor || '#ef4444';
+  };
+
+  const getSkillLabel = (skill) => {
+    const labels = { beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced' };
+    return labels[skill] || 'Beginner';
+  };
+
+  const getSkillIcon = (skill) => {
+    const icons = { beginner: '🏄‍♀️', intermediate: '🏄', advanced: '🏄‍♂️' };
+    return icons[skill] || '🏄‍♀️';
+  };
+
   const getRiskData = (spot) => {
-    const skillData = spot.skillLevelRisks?.[selectedSkillLevel];
+    if (!spot) return { score: 0, level: 'Unknown', flag: '#9ca3af', incidents: 0 };
+
+    // safe access to nested properties
+    const risks = spot.skillLevelRisks || {};
+    const skillData = risks[selectedSkillLevel];
+
     if (skillData) {
       return {
-        score: skillData.riskScore,
-        level: skillData.riskLevel,
-        flag: skillData.flagColor,
+        score: typeof skillData.riskScore === 'number' ? skillData.riskScore : 0,
+        level: skillData.riskLevel || 'Unknown',
+        flag: skillData.flagColor || '#9ca3af',
         incidents: skillData.incidents || 0
       };
     }
-    // Fallback to overall if skill data not available
+
+    // Fallback to spot root level data
     return {
-      score: spot.riskScore,
-      level: spot.riskLevel,
-      flag: spot.flagColor,
+      score: spot.riskScore || 0,
+      level: spot.riskLevel || 'Unknown',
+      flag: spot.flagColor || '#9ca3af',
       incidents: 0
     };
   };
 
-  const getSkillIcon = (skill) => {
-    switch(skill) {
-      case 'beginner': return '🏄‍♀️';
-      case 'intermediate': return '🏄';
-      case 'advanced': return '🏄‍♂️';
-      default: return '🏄‍♀️';
-    }
+  const getRiskLevelForSkill = (score, skill) => {
+    // Local logic to avoid "undefined" object crashes
+    const numScore = Number(score) || 0;
+    
+    if (numScore <= 3) return { level: 'Low', color: '#10b981', bgColor: '#d1fae5', textColor: '#065f46', emoji: '🟢' };
+    if (numScore <= 7) return { level: 'Medium', color: '#f59e0b', bgColor: '#fef3c7', textColor: '#92400e', emoji: '🟡' };
+    return { level: 'High', color: '#ef4444', bgColor: '#fee2e2', textColor: '#991b1b', emoji: '🔴' };
   };
 
-  const getSkillLabel = (skill) => {
-    switch(skill) {
-      case 'beginner': return 'Beginner';
-      case 'intermediate': return 'Intermediate';
-      case 'advanced': return 'Advanced';
-      default: return 'Beginner';
-    }
+  // Safe threshold getter
+  const getThresholdRanges = (skill) => {
+    return {
+      low: { label: '0 - 3' },
+      medium: { label: '4 - 7' },
+      high: { label: '8 - 10' }
+    };
   };
 
-  if (loading) {
+  // --- RENDERING ---
+
+  if (loading && !refreshing) {
     return (
-      <View style={styles.centered}>
+      <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#0891b2" />
         <Text style={styles.loadingText}>Loading risk data...</Text>
       </View>
     );
   }
 
-  // Get threshold ranges for current skill level
+  if (error && !refreshing && surfSpots.length === 0) {
+    return (
+      <View style={styles.centerContainer}>
+        <Text style={styles.errorTitle}>⚠️ Connection Failed</Text>
+        <Text style={styles.errorMessage}>{error}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={loadSurfSpots}>
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   const thresholds = getThresholdRanges(selectedSkillLevel);
 
   return (
@@ -122,24 +171,13 @@ export default function RiskAnalyzerScreen({ navigation }) {
         </ScrollView>
       </View>
 
-      {/* Threshold Info Banner */}
+      {/* Threshold Banner */}
       <View style={styles.thresholdBanner}>
-        <Text style={styles.thresholdTitle}>
-          {getSkillLabel(selectedSkillLevel)} Risk Thresholds
-        </Text>
+        <Text style={styles.thresholdTitle}>{getSkillLabel(selectedSkillLevel)} Risk Thresholds</Text>
         <View style={styles.thresholdRow}>
-          <View style={styles.thresholdItem}>
-            <Text style={styles.thresholdEmoji}>🟢</Text>
-            <Text style={styles.thresholdText}>{thresholds.low.label}</Text>
-          </View>
-          <View style={styles.thresholdItem}>
-            <Text style={styles.thresholdEmoji}>🟡</Text>
-            <Text style={styles.thresholdText}>{thresholds.medium.label}</Text>
-          </View>
-          <View style={styles.thresholdItem}>
-            <Text style={styles.thresholdEmoji}>🔴</Text>
-            <Text style={styles.thresholdText}>{thresholds.high.label}</Text>
-          </View>
+          <View style={styles.thresholdItem}><Text>🟢 {thresholds.low.label}</Text></View>
+          <View style={styles.thresholdItem}><Text>🟡 {thresholds.medium.label}</Text></View>
+          <View style={styles.thresholdItem}><Text>🔴 {thresholds.high.label}</Text></View>
         </View>
       </View>
 
@@ -155,33 +193,28 @@ export default function RiskAnalyzerScreen({ navigation }) {
           }}
         >
           {surfSpots.map((spot) => {
+            // CRITICAL FIX: Skip spots without valid coordinates to prevent crashes
+            if (!spot || !spot.coordinates || !spot.coordinates.latitude || !spot.coordinates.longitude) {
+              return null;
+            }
+
             const riskData = getRiskData(spot);
             const riskLevel = getRiskLevelForSkill(riskData.score, selectedSkillLevel);
-            
+
             return (
               <Marker
-                key={spot._id}
+                key={spot._id || Math.random().toString()}
                 coordinate={{
-                  latitude: spot.coordinates.latitude,
-                  longitude: spot.coordinates.longitude,
+                  latitude: parseFloat(spot.coordinates.latitude),
+                  longitude: parseFloat(spot.coordinates.longitude),
                 }}
                 pinColor={getMarkerColor(riskData.flag)}
               >
                 <Callout>
                   <View style={styles.callout}>
                     <Text style={styles.calloutTitle}>{spot.name}</Text>
-                    <Text style={styles.calloutSkill}>
-                      {getSkillLabel(selectedSkillLevel)} Risk
-                    </Text>
-                    <Text style={styles.calloutRisk}>
-                      {riskLevel.emoji} {riskLevel.level}
-                    </Text>
-                    <Text style={styles.calloutScore}>
-                      Score: {riskData.score}/10
-                    </Text>
-                    <Text style={styles.calloutIncidents}>
-                      Incidents: {riskData.incidents}
-                    </Text>
+                    <Text style={styles.calloutRisk}>{riskLevel.emoji} {riskLevel.level}</Text>
+                    <Text>Score: {riskData.score}/10</Text>
                   </View>
                 </Callout>
               </Marker>
@@ -190,137 +223,61 @@ export default function RiskAnalyzerScreen({ navigation }) {
         </MapView>
       </View>
 
-      {/* Surf Spots List */}
+      {/* List View */}
       <ScrollView
         style={styles.listContainer}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>
-            {getSkillLabel(selectedSkillLevel)} Risk Status
-          </Text>
-          <TouchableOpacity style={styles.refreshButton} onPress={onRefresh}>
+          <Text style={styles.headerTitle}>{getSkillLabel(selectedSkillLevel)} Spots</Text>
+          <TouchableOpacity onPress={onRefresh} style={styles.refreshButton}>
             <Text style={styles.refreshButtonText}>Refresh</Text>
           </TouchableOpacity>
         </View>
 
-        {surfSpots.map((spot) => {
-          const riskData = getRiskData(spot);
-          const riskLevel = getRiskLevelForSkill(riskData.score, selectedSkillLevel);
-          
-          return (
-            <View
-              key={spot._id}
-              style={[
-                styles.spotCard,
-                { borderLeftColor: riskLevel.color }
-              ]}
-            >
-              <View style={styles.spotHeader}>
-                <View style={styles.spotInfo}>
-                  <View style={styles.spotNameRow}>
-                    <Text style={styles.spotName}>{spot.name}</Text>
-                    <Text style={styles.spotEmoji}>{riskLevel.emoji}</Text>
-                  </View>
-                  <Text style={styles.spotLocation}>{spot.location}</Text>
-                  
-                  {/* Risk Badge */}
-                  <View style={[
-                    styles.riskBadge,
-                    { backgroundColor: riskLevel.bgColor }
-                  ]}>
-                    <Text style={[
-                      styles.riskBadgeText,
-                      { color: riskLevel.textColor }
-                    ]}>
-                      {riskLevel.level} Risk
-                    </Text>
-                  </View>
+        {surfSpots.length === 0 ? (
+          <Text style={styles.emptyText}>No spots found.</Text>
+        ) : (
+          surfSpots.map((spot) => {
+            const riskData = getRiskData(spot);
+            const riskLevel = getRiskLevelForSkill(riskData.score, selectedSkillLevel);
 
-                  {/* Risk description */}
-                  <Text style={styles.riskDescription}>
-                    {riskLevel.level === 'Low' && '✓ Safe conditions for this skill level'}
-                    {riskLevel.level === 'Medium' && '⚠ Caution advised - check conditions'}
-                    {riskLevel.level === 'High' && '⛔ Dangerous - avoid if possible'}
-                  </Text>
-                </View>
-                
-                {/* Large Risk Score Display */}
-                <View style={styles.riskScoreContainer}>
-                  <Text style={[styles.riskScoreValue, { color: riskLevel.color }]}>
-                    {riskData.score}
-                  </Text>
-                  <Text style={styles.riskScoreLabel}>/ 10</Text>
+            return (
+              <View key={spot._id} style={[styles.spotCard, { borderLeftColor: riskLevel.color }]}>
+                <View style={styles.spotHeader}>
+                  <View style={styles.spotInfo}>
+                    <View style={styles.spotNameRow}>
+                      <Text style={styles.spotName}>{spot.name}</Text>
+                      <Text style={styles.spotEmoji}>{riskLevel.emoji}</Text>
+                    </View>
+                    <Text style={styles.spotLocation}>{spot.location}</Text>
+                    <View style={[styles.riskBadge, { backgroundColor: riskLevel.bgColor }]}>
+                      <Text style={{ color: riskLevel.textColor, fontWeight: 'bold' }}>
+                        {riskLevel.level} Risk
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.riskScoreContainer}>
+                    <Text style={[styles.riskScoreValue, { color: riskLevel.color }]}>{riskData.score}</Text>
+                    <Text style={styles.riskScoreLabel}>/10</Text>
+                  </View>
                 </View>
               </View>
-
-              {/* Footer */}
-              <View style={styles.spotFooter}>
-                <Text style={styles.footerText}>
-                  Updated: {formatRelativeDate(spot.lastUpdated)}
-                </Text>
-              </View>
-            </View>
-          );
-        })}
-
-        {/* Legend */}
+            );
+          })
+        )}
+        
+        {/* Helper Legend */}
         <View style={styles.legend}>
-          <Text style={styles.legendTitle}>
-            {getSkillLabel(selectedSkillLevel)} Risk Guide
-          </Text>
-          
-          <View style={styles.legendItem}>
-            <Text style={styles.legendEmoji}>🟢</Text>
-            <View style={styles.legendContent}>
-              <Text style={styles.legendLabel}>Green Flag - Low Risk</Text>
-              <Text style={styles.legendRange}>Range: {thresholds.low.label}</Text>
-              <Text style={styles.legendDesc}>
-                {selectedSkillLevel === 'beginner' && 'Ideal conditions for beginners'}
-                {selectedSkillLevel === 'intermediate' && 'Safe for intermediate surfers'}
-                {selectedSkillLevel === 'advanced' && 'Low risk for advanced surfers'}
-                {selectedSkillLevel === 'overall' && 'Generally safe conditions'}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.legendItem}>
-            <Text style={styles.legendEmoji}>🟡</Text>
-            <View style={styles.legendContent}>
-              <Text style={styles.legendLabel}>Yellow Flag - Medium Risk</Text>
-              <Text style={styles.legendRange}>Range: {thresholds.medium.label}</Text>
-              <Text style={styles.legendDesc}>
-                {selectedSkillLevel === 'beginner' && 'Caution advised for beginners'}
-                {selectedSkillLevel === 'intermediate' && 'Moderate risk for intermediates'}
-                {selectedSkillLevel === 'advanced' && 'Some caution for advanced'}
-                {selectedSkillLevel === 'overall' && 'Caution advised - check conditions'}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.legendItem}>
-            <Text style={styles.legendEmoji}>🔴</Text>
-            <View style={styles.legendContent}>
-              <Text style={styles.legendLabel}>Red Flag - High Risk</Text>
-              <Text style={styles.legendRange}>Range: {thresholds.high.label}</Text>
-              <Text style={styles.legendDesc}>
-                {selectedSkillLevel === 'beginner' && 'Dangerous for beginners - avoid'}
-                {selectedSkillLevel === 'intermediate' && 'High risk for intermediates'}
-                {selectedSkillLevel === 'advanced' && 'Challenging even for advanced'}
-                {selectedSkillLevel === 'overall' && 'Dangerous conditions - avoid'}
-              </Text>
-            </View>
-          </View>
+            <Text style={styles.legendTitle}>Guide</Text>
+            <Text>🟢 Low Risk: Ideal for learning</Text>
+            <Text>🟡 Medium Risk: Caution advised</Text>
+            <Text>🔴 High Risk: Dangerous conditions</Text>
         </View>
       </ScrollView>
 
-      {/* Report Hazard Button */}
-      <TouchableOpacity
-        style={styles.fabButton}
-        onPress={() => navigation.navigate('ReportHazard')}
-      >
+      {/* FAB */}
+      <TouchableOpacity style={styles.fabButton} onPress={() => navigation.navigate('ReportHazard')}>
         <Text style={styles.fabText}>⚠️</Text>
       </TouchableOpacity>
     </View>
@@ -329,210 +286,52 @@ export default function RiskAnalyzerScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f9fafb' },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { marginTop: 16, color: '#6b7280' },
+  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  loadingText: { marginTop: 10, color: '#6b7280' },
+  errorTitle: { fontSize: 20, fontWeight: 'bold', color: '#ef4444' },
+  errorMessage: { marginVertical: 10, textAlign: 'center', color: '#374151' },
+  retryButton: { backgroundColor: '#0891b2', padding: 10, borderRadius: 8 },
+  retryButtonText: { color: 'white', fontWeight: 'bold' },
   
-  skillSelector: { 
-    backgroundColor: 'white', 
-    paddingVertical: 12, 
-    paddingHorizontal: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3
-  },
-  skillButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginHorizontal: 4,
-    borderRadius: 20,
-    backgroundColor: '#f3f4f6',
-    borderWidth: 2,
-    borderColor: '#e5e7eb'
-  },
-  skillButtonActive: {
-    backgroundColor: '#e0f2fe',
-    borderColor: '#0891b2'
-  },
-  skillIcon: { fontSize: 18, marginRight: 6 },
-  skillButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#6b7280'
-  },
-  skillButtonTextActive: {
-    color: '#0891b2'
-  },
-  
-  thresholdBanner: {
-    backgroundColor: '#dbeafe',
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#93c5fd'
-  },
-  thresholdTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#1e40af',
-    marginBottom: 8,
-    textAlign: 'center'
-  },
-  thresholdRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around'
-  },
-  thresholdItem: {
-    alignItems: 'center'
-  },
-  thresholdEmoji: {
-    fontSize: 20,
-    marginBottom: 4
-  },
-  thresholdText: {
-    fontSize: 11,
-    color: '#1e40af',
-    fontWeight: '500'
-  },
-  
+  skillSelector: { backgroundColor: 'white', padding: 10, borderBottomWidth: 1, borderColor: '#e5e7eb' },
+  skillButton: { flexDirection: 'row', padding: 8, marginRight: 8, borderRadius: 20, backgroundColor: '#f3f4f6', borderWidth: 1, borderColor: '#e5e7eb' },
+  skillButtonActive: { backgroundColor: '#e0f2fe', borderColor: '#0891b2' },
+  skillIcon: { marginRight: 5 },
+  skillButtonText: { fontSize: 13, fontWeight: '600', color: '#6b7280' },
+  skillButtonTextActive: { color: '#0891b2' },
+
+  thresholdBanner: { flexDirection: 'column', backgroundColor: '#dbeafe', padding: 10 },
+  thresholdTitle: { textAlign: 'center', fontWeight: 'bold', color: '#1e40af', marginBottom: 5 },
+  thresholdRow: { flexDirection: 'row', justifyContent: 'space-around' },
+  thresholdItem: { alignItems: 'center' },
+
   mapContainer: { height: '30%' },
   map: { flex: 1 },
-  callout: { padding: 8, minWidth: 150 },
-  calloutTitle: { fontWeight: 'bold', fontSize: 16, marginBottom: 4, color: '#1f2937' },
-  calloutSkill: { fontSize: 12, color: '#6b7280', marginBottom: 4 },
-  calloutRisk: { fontSize: 14, fontWeight: '600', marginBottom: 2 },
-  calloutScore: { fontSize: 13, color: '#374151', marginBottom: 2 },
-  calloutIncidents: { fontSize: 12, color: '#6b7280' },
+  callout: { padding: 5, width: 140 },
+  calloutTitle: { fontWeight: 'bold' },
   
-  listContainer: { flex: 1, padding: 16 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#1f2937' },
-  refreshButton: { backgroundColor: '#0891b2', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 },
-  refreshButtonText: { color: 'white', fontWeight: '600', fontSize: 13 },
-  
-  spotCard: { 
-    backgroundColor: 'white', 
-    borderRadius: 12, 
-    padding: 16, 
-    marginBottom: 12, 
-    borderLeftWidth: 4,
-    shadowColor: '#000', 
-    shadowOffset: { width: 0, height: 2 }, 
-    shadowOpacity: 0.1, 
-    shadowRadius: 3, 
-    elevation: 3 
-  },
+  listContainer: { flex: 1, padding: 15 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+  headerTitle: { fontSize: 18, fontWeight: 'bold' },
+  refreshButton: { backgroundColor: '#0891b2', padding: 8, borderRadius: 6 },
+  refreshButtonText: { color: 'white', fontSize: 12, fontWeight: 'bold' },
+  emptyText: { textAlign: 'center', marginTop: 20, color: '#6b7280' },
+
+  spotCard: { backgroundColor: 'white', padding: 15, borderRadius: 12, marginBottom: 12, borderLeftWidth: 4, elevation: 2 },
   spotHeader: { flexDirection: 'row', justifyContent: 'space-between' },
   spotInfo: { flex: 1 },
-  spotNameRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-  spotName: { fontSize: 17, fontWeight: 'bold', color: '#1f2937', marginRight: 8 },
-  spotEmoji: { fontSize: 20 },
-  spotLocation: { fontSize: 13, color: '#6b7280', marginBottom: 8 },
+  spotNameRow: { flexDirection: 'row', alignItems: 'center' },
+  spotName: { fontSize: 16, fontWeight: 'bold', marginRight: 5 },
+  spotLocation: { fontSize: 12, color: '#6b7280', marginVertical: 4 },
+  riskBadge: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
   
-  riskBadge: { 
-    paddingVertical: 4, 
-    paddingHorizontal: 12, 
-    borderRadius: 8, 
-    alignSelf: 'flex-start', 
-    marginBottom: 12 
-  },
-  riskBadgeText: { fontSize: 12, fontWeight: '600' },
-  
-  riskDescription: {
-    fontSize: 12,
-    color: '#6b7280',
-    marginTop: 8,
-    lineHeight: 18
-  },
-  
-  riskScoreContainer: { 
-    alignItems: 'flex-end',
-    justifyContent: 'center'
-  },
-  riskScoreValue: { 
-    fontSize: 36, 
-    fontWeight: 'bold'
-  },
-  riskScoreLabel: { 
-    fontSize: 14, 
-    color: '#9ca3af',
-    marginTop: -4
-  },
-  
-  spotFooter: { 
-    marginTop: 12, 
-    paddingTop: 12, 
-    borderTopWidth: 1, 
-    borderTopColor: '#f3f4f6' 
-  },
-  footerText: { 
-    fontSize: 11, 
-    color: '#6b7280' 
-  },
-  
-  legend: { 
-    backgroundColor: 'white', 
-    borderRadius: 12, 
-    padding: 16, 
-    marginTop: 8, 
-    marginBottom: 24 
-  },
-  legendTitle: { 
-    fontSize: 16, 
-    fontWeight: 'bold', 
-    color: '#1f2937', 
-    marginBottom: 12 
-  },
-  legendItem: { 
-    flexDirection: 'row', 
-    alignItems: 'flex-start', 
-    marginBottom: 16 
-  },
-  legendEmoji: { 
-    fontSize: 24, 
-    marginRight: 12,
-    marginTop: 2
-  },
-  legendContent: {
-    flex: 1
-  },
-  legendLabel: { 
-    fontSize: 14, 
-    fontWeight: '600', 
-    color: '#1f2937',
-    marginBottom: 4
-  },
-  legendRange: {
-    fontSize: 12,
-    color: '#0891b2',
-    fontWeight: '600',
-    marginBottom: 4
-  },
-  legendDesc: { 
-    fontSize: 12, 
-    color: '#6b7280',
-    lineHeight: 16
-  },
-  
-  fabButton: { 
-    position: 'absolute', 
-    bottom: 24, 
-    right: 24, 
-    backgroundColor: '#ef4444', 
-    width: 64, 
-    height: 64, 
-    borderRadius: 32, 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    shadowColor: '#000', 
-    shadowOffset: { width: 0, height: 4 }, 
-    shadowOpacity: 0.3, 
-    shadowRadius: 5, 
-    elevation: 8 
-  },
-  fabText: { fontSize: 32 },
+  riskScoreContainer: { alignItems: 'center', justifyContent: 'center', paddingLeft: 10 },
+  riskScoreValue: { fontSize: 24, fontWeight: 'bold' },
+  riskScoreLabel: { fontSize: 10, color: '#9ca3af' },
+
+  legend: { marginTop: 10, padding: 15, backgroundColor: 'white', borderRadius: 8, marginBottom: 30 },
+  legendTitle: { fontWeight: 'bold', marginBottom: 5 },
+
+  fabButton: { position: 'absolute', bottom: 20, right: 20, backgroundColor: '#ef4444', width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', elevation: 5 },
+  fabText: { fontSize: 24 },
 });

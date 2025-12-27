@@ -192,8 +192,9 @@ const validateMLUpdate = [
 const sanitizeQuery = (req, res, next) => {
   // Build a sanitized copy of the query parameters
   const sanitized = {};
-  Object.keys(req.query || {}).forEach(key => {
-    const val = req.query[key];
+  const originalQuery = req.query || {};
+  Object.keys(originalQuery).forEach(key => {
+    const val = originalQuery[key];
     if (typeof val === 'string') {
       // Remove $ and . to prevent operator injection
       sanitized[key] = val.replace(/[\$\.]/g, '');
@@ -207,11 +208,18 @@ const sanitizeQuery = (req, res, next) => {
   
   // For backward compatibility, also update the actual query if possible
   try {
-    // Try to update query directly (works in most cases)
-    Object.keys(req.query).forEach(key => delete req.query[key]);
-    Object.assign(req.query, sanitized);
+    // Only attempt to mutate req.query when it's a plain object
+    if (req.query && typeof req.query === 'object') {
+      Object.keys(req.query || {}).forEach(key => delete req.query[key]);
+      Object.assign(req.query, sanitized);
+    } else {
+      // If req.query isn't writable (or doesn't exist), attach sanitized copy
+      req.sanitizedQuery = sanitized;
+      console.warn('⚠️  req.query is not writable; attached req.sanitizedQuery');
+    }
   } catch (e) {
     // If that fails, code should use req.sanitizedQuery instead
+    req.sanitizedQuery = sanitized;
     console.warn('⚠️  Using req.sanitizedQuery instead of req.query');
   }
   

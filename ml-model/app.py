@@ -1,15 +1,28 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
+from dotenv import load_dotenv
 from predict_risk import predict_risk_score, update_all_risk_scores
 from analyze_hazard import analyze_hazard_image
+
+# Load environment variables
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
 
+# Configuration from environment
+FLASK_PORT = int(os.getenv('FLASK_PORT', 5001))
+FLASK_HOST = os.getenv('FLASK_HOST', '0.0.0.0')
+FLASK_ENV = os.getenv('FLASK_ENV', 'development')
+
 @app.route('/health', methods=['GET'])
 def health():
-    return jsonify({'status': 'OK', 'message': 'ML API is running'})
+    return jsonify({
+        'status': 'OK',
+        'message': 'ML API is running',
+        'environment': FLASK_ENV
+    })
 
 @app.route('/predict-risk/<spot_name>', methods=['GET'])
 def predict_risk(spot_name):
@@ -33,8 +46,7 @@ def update_risk():
         data = request.json
         spot_id = data.get('surf_spot_id')
         
-        # Get spot name from ID (you'll need to query MongoDB)
-        # For now, update all scores
+        # Update all scores
         update_all_risk_scores()
         
         return jsonify({
@@ -98,4 +110,17 @@ def analyze_hazard():
         }), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5001, debug=True)
+    print('\n🤖 ================================')
+    print('   ML Service Starting')
+    print('   ================================\n')
+    print(f'✅ Environment: {FLASK_ENV}')
+    print(f'🌍 Host: {FLASK_HOST}')
+    print(f'🔌 Port: {FLASK_PORT}\n')
+    print(f'📡 Access: http://{FLASK_HOST}:{FLASK_PORT}')
+    print('================================\n')
+    
+    app.run(
+        host=FLASK_HOST,
+        port=FLASK_PORT,
+        debug=(FLASK_ENV == 'development')
+    )

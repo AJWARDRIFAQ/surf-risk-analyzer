@@ -13,7 +13,9 @@ import { STORAGE_KEYS } from '../utils/constants';
  */
 export const setItem = async (key, value) => {
   try {
-    const jsonValue = JSON.stringify(value);
+    // Normalize undefined to null so AsyncStorage.setItem always receives a string
+    const safeValue = value === undefined ? null : value;
+    const jsonValue = JSON.stringify(safeValue);
     await AsyncStorage.setItem(key, jsonValue);
     return { success: true };
   } catch (error) {
@@ -96,7 +98,8 @@ export const multiSet = async (keyValuePairs) => {
   try {
     const pairs = keyValuePairs.map(([key, value]) => [
       key,
-      JSON.stringify(value),
+      // Convert undefined to null to avoid AsyncStorage errors
+      JSON.stringify(value === undefined ? null : value),
     ]);
     await AsyncStorage.multiSet(pairs);
     return { success: true };

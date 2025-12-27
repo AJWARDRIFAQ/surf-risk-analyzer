@@ -302,17 +302,25 @@ const sanitizeRequest = (req, res, next) => {
   }
 
   // req.query may be a getter-only property in some environments (can't reassign)
-  if (req.query) {
-    const sanitizedQuery = sanitize(req.query);
-    try {
-      // Try to replace safely by removing existing keys and copying sanitized ones
-      for (const k of Object.keys(req.query)) delete req.query[k];
+  try {
+    const originalQuery = req.query || {};
+    const sanitizedQuery = sanitize(originalQuery);
+
+    // Only attempt to mutate when req.query looks like a plain object
+    if (req.query && typeof req.query === 'object' && !Object.isFrozen(req.query)) {
+      for (const k of Object.keys(originalQuery || {})) delete req.query[k];
       Object.assign(req.query, sanitizedQuery);
-    } catch (err) {
-      // If mutation fails, attach sanitized copy under a safe property and log
+    } else {
+      // Safe fallback: expose sanitized copy for downstream code
       req.customQuery = sanitizedQuery;
-      console.warn('⚠️  Could not overwrite req.query; using req.customQuery instead');
+      if (Object.keys(sanitizedQuery).length > 0) {
+        console.warn('⚠️  req.query is not writable; attached req.customQuery instead');
+      }
     }
+  } catch (err) {
+    // Conservative fallback
+    req.customQuery = req.customQuery || {};
+    console.warn('⚠️  Error sanitizing req.query; using req.customQuery fallback');
   }
 
   // req.params usually writable

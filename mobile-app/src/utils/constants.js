@@ -1,167 +1,85 @@
-// ==================== SKILL-SPECIFIC RISK THRESHOLDS ====================
-export const SKILL_RISK_THRESHOLDS = {
-  beginner: {
-    low: 5.0,      // 1-5 = Green Flag (Low Risk)
-    medium: 6.5    // 5-6.5 = Yellow Flag (Medium Risk), 6.5-10 = Red Flag (High Risk)
-  },
-  intermediate: {
-    low: 6.0,      // 1-6 = Green Flag (Low Risk)
-    medium: 7.2    // 6-7.2 = Yellow Flag (Medium Risk), 7.2-10 = Red Flag (High Risk)
-  },
-  advanced: {
-    low: 7.0,      // 1-7 = Green Flag (Low Risk)
-    medium: 8.0    // 7-8 = Yellow Flag (Medium Risk), 8-10 = Red Flag (High Risk)
-  },
-  overall: {
-    low: 3.3,      // 1-3.3 = Green Flag (Low Risk)
-    medium: 6.6    // 3.3-6.6 = Yellow Flag (Medium Risk), 6.6-10 = Red Flag (High Risk)
+import { Platform } from 'react-native';
+
+/**
+ * API Configuration
+ * 
+ * FOR ANDROID EMULATOR: Uses 10.0.2.2
+ * FOR iOS SIMULATOR: Uses localhost
+ * FOR PHYSICAL DEVICE: Set DEVICE_API_URL below
+ */
+
+// 🔧 CONFIGURE THIS FOR PHYSICAL DEVICE TESTING
+// Find your computer's IP from backend startup logs
+// Example: const DEVICE_API_URL = 'http://192.168.1.100:5000';
+const DEVICE_API_URL = ''; // Leave empty for emulator/simulator
+
+/**
+ * Get the API base URL based on platform
+ */
+const getApiBaseUrl = () => {
+  // If testing on physical device, use the configured URL
+  if (DEVICE_API_URL) {
+    console.log('📱 Using device API URL:', DEVICE_API_URL);
+    return DEVICE_API_URL;
+  }
+
+  // Auto-detect for emulator/simulator
+  if (Platform.OS === 'android') {
+    // Android emulator uses 10.0.2.2 to access host machine
+    console.log('🤖 Android emulator detected, using 10.0.2.2:5000');
+    return 'http://10.0.2.2:5000';
+  } else if (Platform.OS === 'ios') {
+    // iOS simulator uses localhost
+    console.log('🍎 iOS simulator detected, using localhost:5000');
+    return 'http://localhost:5000';
+  } else {
+    // Fallback for web or other platforms
+    console.log('🌐 Web platform detected, using localhost:5000');
+    return 'http://localhost:5000';
   }
 };
 
-// ==================== API CONFIGURATION ====================
-export const API_CONFIG = {
-  BASE_URL: 'http://10.91.46.168:5000/api',
-  ML_API_URL: 'http://10.91.46.168:5001', 
-  TIMEOUT: 30000,
-  MAX_RETRIES: 3,
+export const API_BASE_URL = 'http://192.168.1.152:5000';
+
+export const ENDPOINTS = {
+  HEALTH: '/api/health',
+  SERVER_INFO: '/api/server-info',
+  SURF_SPOTS: '/api/surf-spots',
+  HAZARD_REPORTS: '/api/hazard-reports',
+  INCIDENTS: '/api/incidents',
 };
 
-// ==================== HAZARD TYPES ====================
+export const RISK_LEVELS = {
+  LOW: 'Low',
+  MEDIUM: 'Medium',
+  HIGH: 'High',
+};
+
+export const FLAG_COLORS = {
+  GREEN: 'green',
+  YELLOW: 'yellow',
+  RED: 'red',
+};
+
 export const HAZARD_TYPES = [
-  { id: 1, value: 'Rip Current', icon: '🌊', severity: 'high' },
-  { id: 2, value: 'High Surf', icon: '🌊', severity: 'high' },
-  { id: 3, value: 'Reef Cuts', icon: '🪨', severity: 'medium' },
-  { id: 4, value: 'Jellyfish', icon: '🪼', severity: 'medium' },
-  { id: 5, value: 'Sea Urchins', icon: '🦔', severity: 'low' },
-  { id: 6, value: 'Strong Winds', icon: '💨', severity: 'medium' },
-  { id: 7, value: 'Poor Visibility', icon: '🌫️', severity: 'low' },
-  { id: 8, value: 'Overcrowding', icon: '👥', severity: 'low' },
-  { id: 9, value: 'Equipment Issues', icon: '🏄', severity: 'medium' },
-  { id: 10, value: 'Marine Life', icon: '🐟', severity: 'medium' },
-  { id: 11, value: 'Other', icon: '⚠️', severity: 'medium' },
+  'Rip Current',
+  'High Surf',
+  'Reef Cuts',
+  'Jellyfish',
+  'Sea Urchins',
+  'Strong Winds',
+  'Poor Visibility',
+  'Overcrowding',
+  'Equipment Issues',
+  'Marine Life',
+  'Other',
 ];
 
-// ==================== SEVERITY LEVELS ====================
-export const SEVERITY_LEVELS = [
-  { 
-    value: 'low', 
-    label: 'Low', 
-    color: '#10b981',
-    bgColor: '#d1fae5',
-    textColor: '#065f46',
-    description: 'Minor concern'
-  },
-  { 
-    value: 'medium', 
-    label: 'Medium', 
-    color: '#f59e0b',
-    bgColor: '#fef3c7',
-    textColor: '#92400e',
-    description: 'Moderate risk'
-  },
-  { 
-    value: 'high', 
-    label: 'High', 
-    color: '#ef4444',
-    bgColor: '#fee2e2',
-    textColor: '#991b1b',
-    description: 'Serious hazard'
-  },
-];
+export const SEVERITY_LEVELS = ['low', 'medium', 'high'];
 
-// ==================== EXPERIENCE LEVELS ====================
-export const EXPERIENCE_LEVELS = [
-  {
-    value: 'beginner',
-    label: 'Beginner',
-    description: 'New to surfing or under 1 year experience',
-    icon: '🏄‍♀️',
-    thresholds: SKILL_RISK_THRESHOLDS.beginner,
-  },
-  {
-    value: 'intermediate',
-    label: 'Intermediate',
-    description: '1-3 years experience',
-    icon: '🏄',
-    thresholds: SKILL_RISK_THRESHOLDS.intermediate,
-  },
-  {
-    value: 'advanced',
-    label: 'Advanced',
-    description: '3+ years experience',
-    icon: '🏄‍♂️',
-    thresholds: SKILL_RISK_THRESHOLDS.advanced,
-  },
-];
-
-// ==================== MEDIA UPLOAD SETTINGS ====================
-export const MEDIA_UPLOAD = {
-  MAX_FILES: 5,
-  MAX_FILE_SIZE: 50 * 1024 * 1024,
-  MAX_VIDEO_DURATION: 30,
-  ACCEPTED_IMAGE_TYPES: ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'],
-  ACCEPTED_VIDEO_TYPES: ['video/mp4', 'video/mov', 'video/avi'],
-  IMAGE_QUALITY: 0.8,
-};
-
-// ==================== MAP SETTINGS ====================
-export const MAP_SETTINGS = {
-  SRI_LANKA_CENTER: {
-    latitude: 7.8731,
-    longitude: 80.7718,
-    latitudeDelta: 3.5,
-    longitudeDelta: 3.5,
-  },
-  DEFAULT_ZOOM: {
-    latitudeDelta: 0.5,
-    longitudeDelta: 0.5,
-  },
-};
-
-// ==================== STORAGE KEYS ====================
-export const STORAGE_KEYS = {
-  TOKEN: '@surf_risk_token',
-  USER: '@surf_risk_user',
-  THEME: '@surf_risk_theme',
-  LANGUAGE: '@surf_risk_language',
-  ONBOARDING_COMPLETE: '@surf_risk_onboarding',
-  FAVORITE_SPOTS: '@surf_risk_favorites',
-  NOTIFICATION_SETTINGS: '@surf_risk_notifications',
-};
-
-// ==================== COLORS ====================
-export const COLORS = {
-  primary: '#0891b2',
-  secondary: '#06b6d4',
-  success: '#10b981',
-  warning: '#f59e0b',
-  danger: '#ef4444',
-  info: '#3b82f6',
-  
-  gray50: '#f9fafb',
-  gray100: '#f3f4f6',
-  gray200: '#e5e7eb',
-  gray300: '#d1d5db',
-  gray400: '#9ca3af',
-  gray500: '#6b7280',
-  gray600: '#4b5563',
-  gray700: '#374151',
-  gray800: '#1f2937',
-  gray900: '#111827',
-  
-  white: '#ffffff',
-  black: '#000000',
-  transparent: 'transparent',
-};
-
-export default {
-  API_CONFIG,
-  SKILL_RISK_THRESHOLDS,
-  HAZARD_TYPES,
-  SEVERITY_LEVELS,
-  EXPERIENCE_LEVELS,
-  MEDIA_UPLOAD,
-  MAP_SETTINGS,
-  STORAGE_KEYS,
-  COLORS,
-};
+// Log configuration on startup
+console.log('\n🌐 API Configuration:');
+console.log('====================');
+console.log('Platform:', Platform.OS);
+console.log('Base URL:', API_BASE_URL);
+console.log('====================\n');
