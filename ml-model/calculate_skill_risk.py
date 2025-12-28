@@ -10,7 +10,9 @@ client = pymongo.MongoClient(os.getenv('MONGODB_URI', 'mongodb://localhost:27017
 db = client['surf-risk-analyzer']
 surf_spots_collection = db['surfspots']
 
-# CORRECTED: Manually set scores to match your exact requirements
+# ==================== MANUAL RISK SCORES ====================
+# These scores are set to match your exact requirements
+
 MANUAL_RISK_SCORES = {
     'Hikkaduwa': {
         'beginner': 7.5,      # Red (>6.5)
@@ -74,7 +76,8 @@ MANUAL_RISK_SCORES = {
     }
 }
 
-# Skill-specific thresholds
+# ==================== SKILL-SPECIFIC THRESHOLDS ====================
+
 SKILL_THRESHOLDS = {
     'beginner': {
         'low': 5.0,
@@ -128,7 +131,7 @@ def calculate_skill_based_risks():
         intermediate_level, intermediate_flag = get_risk_level_and_flag(intermediate_score, 'intermediate')
         advanced_level, advanced_flag = get_risk_level_and_flag(advanced_score, 'advanced')
         
-        # Calculate overall risk (weighted average)
+        # Calculate overall risk (weighted average: beginner 50%, intermediate 30%, advanced 20%)
         overall_score = (
             beginner_score * 0.5 +
             intermediate_score * 0.3 +
@@ -200,17 +203,20 @@ def update_database_with_skill_risks():
                 'beginner': {
                     'riskScore': result['beginner']['score'],
                     'riskLevel': result['beginner']['level'],
-                    'flagColor': result['beginner']['flag']
+                    'flagColor': result['beginner']['flag'],
+                    'incidents': 0
                 },
                 'intermediate': {
                     'riskScore': result['intermediate']['score'],
                     'riskLevel': result['intermediate']['level'],
-                    'flagColor': result['intermediate']['flag']
+                    'flagColor': result['intermediate']['flag'],
+                    'incidents': 0
                 },
                 'advanced': {
                     'riskScore': result['advanced']['score'],
                     'riskLevel': result['advanced']['level'],
-                    'flagColor': result['advanced']['flag']
+                    'flagColor': result['advanced']['flag'],
+                    'incidents': 0
                 }
             }
         }
@@ -266,16 +272,9 @@ def generate_summary_report():
         low = [r['spot_name'] for r in results if r[skill]['level'] == 'Low']
         
         print(f"\n{skill.capitalize()}:")
-        print(f"  🔴 High Risk: {len(high)} spots")
-        print(f"  🟡 Medium Risk: {len(medium)} spots")
-        print(f"  🟢 Low Risk: {len(low)} spots")
-        
-        if high:
-            print(f"  High spots: {high}")
-        if medium:
-            print(f"  Medium spots: {medium}")
-        if low:
-            print(f"  Low spots: {low}")
+        print(f"  🔴 High Risk ({len(high)} spots): {', '.join(high) if high else 'None'}")
+        print(f"  🟡 Medium Risk ({len(medium)} spots): {', '.join(medium) if medium else 'None'}")
+        print(f"  🟢 Low Risk ({len(low)} spots): {', '.join(low) if low else 'None'}")
 
 def verify_expected_results():
     """Verify that results match your expected distributions"""

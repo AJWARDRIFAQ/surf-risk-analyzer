@@ -1,17 +1,49 @@
 const mongoose = require('mongoose');
 
 const surfSpotSchema = new mongoose.Schema({
-  name: { type: String, required: true, unique: true },
-  location: { type: String, required: true },
+  name: { 
+    type: String, 
+    required: true, 
+    unique: true,
+    trim: true
+  },
+  location: { 
+    type: String, 
+    required: true,
+    trim: true
+  },
   coordinates: {
-    latitude: { type: Number, required: true },
-    longitude: { type: Number, required: true }
+    latitude: { 
+      type: Number, 
+      required: true,
+      min: -90,
+      max: 90
+    },
+    longitude: { 
+      type: Number, 
+      required: true,
+      min: -180,
+      max: 180
+    }
   },
   
-  // Overall risk (for general display)
-  riskScore: { type: Number, default: 0, min: 0, max: 10 },
-  riskLevel: { type: String, enum: ['Low', 'Medium', 'High'], default: 'Low' },
-  flagColor: { type: String, enum: ['green', 'yellow', 'red'], default: 'green' },
+  // Overall risk (for backward compatibility and general display)
+  riskScore: { 
+    type: Number, 
+    default: 0, 
+    min: 0, 
+    max: 10 
+  },
+  riskLevel: { 
+    type: String, 
+    enum: ['Low', 'Medium', 'High'], 
+    default: 'Low' 
+  },
+  flagColor: { 
+    type: String, 
+    enum: ['green', 'yellow', 'red'], 
+    default: 'green' 
+  },
   
   // Skill-specific risks with custom thresholds
   skillLevelRisks: {
@@ -37,7 +69,10 @@ const surfSpotSchema = new mongoose.Schema({
   
   lastUpdated: { type: Date, default: Date.now },
   totalIncidents: { type: Number, default: 0 },
-  recentHazards: [{ type: mongoose.Schema.Types.ObjectId, ref: 'HazardReport' }],
+  recentHazards: [{ 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'HazardReport' 
+  }],
   historicalData: {
     seasonalPatterns: mongoose.Schema.Types.Mixed,
     commonHazards: [String],
@@ -45,7 +80,14 @@ const surfSpotSchema = new mongoose.Schema({
   }
 });
 
-// Overall risk calculation (general users)
+// Indexes for better query performance
+surfSpotSchema.index({ name: 1 });
+surfSpotSchema.index({ 'coordinates.latitude': 1, 'coordinates.longitude': 1 });
+
+/**
+ * Calculate overall risk level based on score
+ * Uses default thresholds: 0-3.3 = Low, 3.3-6.6 = Medium, 6.6-10 = High
+ */
 surfSpotSchema.methods.calculateRiskScore = function() {
   if (this.riskScore <= 3.3) {
     this.riskLevel = 'Low';
@@ -59,7 +101,12 @@ surfSpotSchema.methods.calculateRiskScore = function() {
   }
 };
 
-// Skill-specific risk calculation with custom thresholds
+/**
+ * Calculate skill-specific risk level using custom thresholds
+ * @param {string} skillLevel - 'beginner', 'intermediate', or 'advanced'
+ * @param {number} riskScore - Risk score (0-10)
+ * @returns {object} Risk level and flag color
+ */
 surfSpotSchema.methods.calculateSkillRiskScore = function(skillLevel, riskScore) {
   // Custom thresholds for each skill level
   const thresholds = {
@@ -107,7 +154,10 @@ surfSpotSchema.methods.calculateSkillRiskScore = function(skillLevel, riskScore)
   return { riskLevel, flagColor };
 };
 
-// Update all skill levels at once
+/**
+ * Update all skill levels at once
+ * @param {object} skillScores - Object with beginner, intermediate, advanced scores
+ */
 surfSpotSchema.methods.updateAllSkillLevels = function(skillScores) {
   if (skillScores.beginner !== undefined) {
     this.calculateSkillRiskScore('beginner', skillScores.beginner);
@@ -119,7 +169,7 @@ surfSpotSchema.methods.updateAllSkillLevels = function(skillScores) {
     this.calculateSkillRiskScore('advanced', skillScores.advanced);
   }
   
-  // Update overall risk score (weighted average)
+  // Update overall risk score (weighted average: beginner 50%, intermediate 30%, advanced 20%)
   const overallScore = (
     (skillScores.beginner || 0) * 0.5 +
     (skillScores.intermediate || 0) * 0.3 +
@@ -130,5 +180,67 @@ surfSpotSchema.methods.updateAllSkillLevels = function(skillScores) {
   this.calculateRiskScore();
   this.lastUpdated = Date.now();
 };
+
+/**
+ * Get risk data for a specific skill level
+ * @param {string} skillLevel - 'beginner', 'intermediate', or 'advanced'
+ * @returns {object} Risk data for the skill level
+ */
+surfSpotSchema.methods.getRiskForSkill = function(skillLevel) {
+  if (this.skillLevelRisks && this.skillLevelRisks[skillLevel]) {
+    return {
+      riskScore: this.skillLevelRisks[skillLevel].riskScore,
+      riskLevel: this.skillLevelRisks[skillLevel].riskLevel,
+      flagColor: this.skillLevelRisks[skillLevel].flagColor,
+      incidents: this.skillLevelRisks[skillLevel].incidents || 0
+    };
+  }
+  
+  // Fallback to overall risk if skill-specific data not available
+  return {
+    riskScore: this.riskScore,
+    riskLevel: this.riskLevel,
+    flagColor: this.flagColor,
+    incidents: this.totalIncidents
+  };
+};
+
+/**
+ * Pre-save middleware to ensure data consistency
+ */
+surfSpotSchema.pre('save', function(next) {
+  // Ensure skillLevelRisks exists
+  if (!this.skillLevelRisks) {
+    this.skillLevelRisks = {
+      beginner: { incidents: 0, riskScore: 0, riskLevel: 'Low', flagColor: 'green' },
+      intermediate: { incidents: 0, riskScore: 0, riskLevel: 'Low', flagColor: 'green' },
+      advanced: { incidents: 0, riskScore: 0, riskLevel: 'Low', flagColor: 'green' }
+    };
+  }
+  
+  // Update timestamp
+  this.lastUpdated = Date.now();
+  
+  next();
+});
+
+/**
+ * Virtual for formatted coordinates
+ */
+surfSpotSchema.virtual('formattedCoordinates').get(function() {
+  return `${this.coordinates.latitude.toFixed(4)}°, ${this.coordinates.longitude.toFixed(4)}°`;
+});
+
+/**
+ * toJSON transformation to include virtuals
+ */
+surfSpotSchema.set('toJSON', {
+  virtuals: true,
+  transform: function(doc, ret) {
+    // Remove internal fields
+    delete ret.__v;
+    return ret;
+  }
+});
 
 module.exports = mongoose.model('SurfSpot', surfSpotSchema);
