@@ -2,8 +2,8 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar } from 'expo-status-bar';
-import RiskAnalyzerScreen from './src/screens/RiskAnalyzerScreen';
-import ReportHazardScreen from './src/screens/ReportHazardScreen';
+import RiskAnalyzerScreen from './screens/RiskAnalyzerScreen';
+import ReportHazardScreen from './screens/ReportHazardScreen';
 
 const Stack = createStackNavigator();
 

@@ -1,4 +1,4 @@
-// mobile-app/src/screens/RiskAnalyzerScreen.js
+// mobile-app/screens/RiskAnalyzerScreen.js
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
