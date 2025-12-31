@@ -14,7 +14,7 @@ import { getSurfSpots } from '../services/api';
 import { SKILL_LEVELS } from '../utils/constants';
 import { getRiskDataForSkill, getRiskLevelForSkill, getThresholdRanges, getSkillLevelInfo } from '../utils/helpers';
 import SkillLevelTabs from '../components/SkillLevelTabs';
-import SurfMapView from '../components/MapView';
+import WebMapView from '../components/WebMapView';
 
 export default function RiskAnalyzerScreen({ navigation }) {
   const [surfSpots, setSurfSpots] = useState([]);
@@ -35,9 +35,11 @@ export default function RiskAnalyzerScreen({ navigation }) {
       setError(null);
       
       const response = await getSurfSpots();
+      // response has structure: { success: true, data: [...], count: ... }
       const spots = response.data || [];
       
       console.log('✅ Loaded', spots.length, 'surf spots');
+      console.log('📊 Spots data:', spots);
       setSurfSpots(spots);
       
     } catch (err) {
@@ -158,7 +160,7 @@ export default function RiskAnalyzerScreen({ navigation }) {
 
   function renderMapView() {
     return (
-      <SurfMapView
+      <WebMapView
         surfSpots={surfSpots}
         selectedSpot={selectedSpot}
         selectedSkillLevel={selectedSkillLevel}
@@ -209,28 +211,6 @@ export default function RiskAnalyzerScreen({ navigation }) {
                   <Text style={styles.scoreLabel}>/10</Text>
                 </View>
               </View>
-              
-              {/* Skill Level Breakdown */}
-              <View style={styles.skillBreakdown}>
-                <Text style={styles.breakdownTitle}>All Skill Levels:</Text>
-                <View style={styles.skillRow}>
-                  {['beginner', 'intermediate', 'advanced'].map(level => {
-                    const levelData = getRiskDataForSkill(spot, level);
-                    const levelRisk = getRiskLevelForSkill(levelData.score, level);
-                    const levelInfo = getSkillLevelInfo(level);
-                    
-                    return (
-                      <View key={level} style={styles.skillItem}>
-                        <Text style={styles.skillEmoji}>{levelInfo.icon}</Text>
-                        <Text style={styles.skillScore} numberOfLines={1}>
-                          {levelData.score.toFixed(1)}
-                        </Text>
-                        <Text style={styles.skillFlag}>{levelRisk.emoji}</Text>
-                      </View>
-                    );
-                  })}
-                </View>
-              </View>
             </TouchableOpacity>
           );
         })}
@@ -277,14 +257,6 @@ const styles = StyleSheet.create({
   spotScore: { alignItems: 'center', paddingLeft: 12, borderLeftWidth: 1, borderColor: '#e5e7eb' },
   scoreValue: { fontSize: 32, fontWeight: 'bold', lineHeight: 36 },
   scoreLabel: { fontSize: 12, color: '#9ca3af', marginTop: -4 },
-
-  skillBreakdown: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#e5e7eb' },
-  breakdownTitle: { fontSize: 11, fontWeight: '600', color: '#6b7280', marginBottom: 8 },
-  skillRow: { flexDirection: 'row', justifyContent: 'space-around' },
-  skillItem: { alignItems: 'center', flex: 1 },
-  skillEmoji: { fontSize: 18, marginBottom: 4 },
-  skillScore: { fontSize: 14, fontWeight: 'bold', color: '#374151', marginBottom: 2 },
-  skillFlag: { fontSize: 16 },
 
   fabButton: { position: 'absolute', bottom: 24, right: 24, backgroundColor: '#ef4444', width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5 },
   fabIcon: { fontSize: 24 },

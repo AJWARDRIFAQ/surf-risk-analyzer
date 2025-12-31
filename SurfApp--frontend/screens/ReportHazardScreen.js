@@ -40,10 +40,10 @@ export default function ReportHazardScreen({ navigation }) {
   const loadSurfSpots = async () => {
     try {
       const response = await surfSpotsAPI.getAll();
-      if (response.data.success) {
-        setSurfSpots(response.data.data);
-        if (response.data.data.length > 0) {
-          setFormData(prev => ({...prev, surfSpotId: response.data.data[0]._id}));
+      if (response.success) {
+        setSurfSpots(response.data);
+        if (response.data.length > 0) {
+          setFormData(prev => ({...prev, surfSpotId: response.data[0]._id}));
         }
       }
     } catch (error) {
@@ -112,7 +112,7 @@ export default function ReportHazardScreen({ navigation }) {
 
       const response = await hazardReportsAPI.submit(formDataToSend);
 
-      if (response.data.success) {
+      if (response.success) {
         Alert.alert(
           'Success',
           'Hazard report submitted! Risk scores will be updated.',

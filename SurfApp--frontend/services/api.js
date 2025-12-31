@@ -148,4 +148,16 @@ export const testConnection = async () => {
   }
 };
 
+/**
+ * API wrapper objects for organized access
+ */
+export const surfSpotsAPI = {
+  getAll: getSurfSpots,
+  getById: getSurfSpotById,
+};
+
+export const hazardReportsAPI = {
+  submit: submitHazardReport,
+};
+
 export default api;

@@ -1,15 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, ActivityIndicator } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 
 /**
- * MapView Component WITHOUT Google API Key
- * Uses default map provider (Apple Maps on iOS, OpenStreetMap-based on Android)
+ * MapView Component - Using Expo's built-in map provider
+ * Automatically uses Apple Maps on iOS and Google Maps on Android
+ * Note: Make sure your device has proper Google Play Services installed on Android
  */
 const SurfMapView = ({ surfSpots, onSpotSelect, selectedSpot, selectedSkillLevel }) => {
   const mapRef = useRef(null);
   const [mapType, setMapType] = useState('standard');
   const [mapReady, setMapReady] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Sri Lanka center coordinates
   const INITIAL_REGION = {
@@ -21,7 +23,8 @@ const SurfMapView = ({ surfSpots, onSpotSelect, selectedSpot, selectedSkillLevel
 
   useEffect(() => {
     // Fit markers after map is ready and spots are loaded
-    if (mapReady && surfSpots.length > 0) {
+    if (mapReady && surfSpots && surfSpots.length > 0) {
+      console.log('📍 Fitting markers for', surfSpots.length, 'spots');
       setTimeout(() => {
         fitAllMarkers();
       }, 500);
@@ -32,7 +35,9 @@ const SurfMapView = ({ surfSpots, onSpotSelect, selectedSpot, selectedSkillLevel
    * Handle map ready
    */
   const handleMapReady = () => {
-    console.log('Map is ready');
+    console.log('✅ Map is ready');
+    console.log('📍 Surf spots available:', surfSpots?.length || 0);
+    setIsLoading(false);
     setMapReady(true);
   };
 
@@ -72,6 +77,31 @@ const SurfMapView = ({ surfSpots, onSpotSelect, selectedSpot, selectedSkillLevel
       default: return '#6b7280';
     }
   };
+
+  // If no spots available, show message
+  if (!surfSpots || surfSpots.length === 0) {
+    return (
+      <View style={styles.container}>
+        <MapView
+          ref={mapRef}
+          style={styles.map}
+          initialRegion={INITIAL_REGION}
+          mapType={mapType}
+          showsUserLocation={true}
+          showsMyLocationButton={false}
+          showsCompass={true}
+          showsScale={true}
+          onMapReady={() => {
+            console.log('✅ Map ready (no spots)');
+            setMapReady(true);
+          }}
+        />
+        <View style={styles.noSpotsContainer}>
+          <Text style={styles.noSpotsText}>📍 No surf spots available</Text>
+        </View>
+      </View>
+    );
+  }
 
   /**
    * Handle marker press
@@ -145,10 +175,13 @@ const SurfMapView = ({ surfSpots, onSpotSelect, selectedSpot, selectedSkillLevel
         showsMyLocationButton={false}
         showsCompass={true}
         showsScale={true}
-        loadingEnabled={true}
-        loadingBackgroundColor="#e0f2fe"
         onMapReady={handleMapReady}
         moveOnMarkerPress={false}
+        zoomEnabled={true}
+        scrollEnabled={true}
+        pitchEnabled={false}
+        rotateEnabled={false}
+        cacheEnabled={Platform.OS === 'android'}
       >
         {surfSpots.map((spot) => {
           if (!spot.coordinates?.latitude || !spot.coordinates?.longitude) {
@@ -180,6 +213,14 @@ const SurfMapView = ({ surfSpots, onSpotSelect, selectedSpot, selectedSkillLevel
           );
         })}
       </MapView>
+
+      {/* Loading Overlay */}
+      {isLoading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color="#0891b2" />
+          <Text style={styles.loadingText}>Loading map...</Text>
+        </View>
+      )}
 
       {/* Map Controls */}
       <View style={styles.controlsContainer}>
@@ -247,6 +288,45 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+    backgroundColor: '#f0f0f0',
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 100,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0891b2',
+  },
+  noSpotsContainer: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    marginLeft: -80,
+    marginTop: -30,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 24,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  noSpotsText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6b7280',
   },
   customMarker: {
     width: 36,
