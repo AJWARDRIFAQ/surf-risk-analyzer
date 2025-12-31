@@ -1,5 +1,4 @@
-// mobile-app/screens/RiskAnalyzerScreen.js
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,23 +8,13 @@ import {
   RefreshControl,
   Alert,
   StyleSheet,
-  Dimensions,
-  Platform,
 } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 
 import { getSurfSpots } from '../services/api';
 import { SKILL_LEVELS } from '../utils/constants';
-import { 
-  getRiskLevelForSkill, 
-  getRiskDataForSkill, 
-  getThresholdRanges,
-  getSkillLevelInfo,
-  formatRelativeDate
-} from '../utils/helpers';
+import { getRiskDataForSkill, getRiskLevelForSkill, getThresholdRanges, getSkillLevelInfo } from '../utils/helpers';
 import SkillLevelTabs from '../components/SkillLevelTabs';
-
-const { width, height } = Dimensions.get('window');
+import SurfMapView from '../components/MapView';
 
 export default function RiskAnalyzerScreen({ navigation }) {
   const [surfSpots, setSurfSpots] = useState([]);
@@ -35,7 +24,6 @@ export default function RiskAnalyzerScreen({ navigation }) {
   const [viewMode, setViewMode] = useState('map');
   const [selectedSpot, setSelectedSpot] = useState(null);
   const [error, setError] = useState(null);
-  const mapRef = useRef(null);
 
   useEffect(() => {
     loadSurfSpots();
@@ -65,79 +53,6 @@ export default function RiskAnalyzerScreen({ navigation }) {
   const onRefresh = () => {
     setRefreshing(true);
     loadSurfSpots();
-  };
-
-  const handleMarkerPress = (spot) => {
-    setSelectedSpot(spot);
-    
-    if (mapRef.current && spot.coordinates) {
-      mapRef.current.animateToRegion({
-        latitude: spot.coordinates.latitude,
-        longitude: spot.coordinates.longitude,
-        latitudeDelta: 0.5,
-        longitudeDelta: 0.5,
-      }, 1000);
-    }
-  };
-
-  const fitAllMarkers = () => {
-    if (mapRef.current && surfSpots.length > 0) {
-      const coordinates = surfSpots
-        .filter(spot => spot.coordinates?.latitude && spot.coordinates?.longitude)
-        .map(spot => ({
-          latitude: spot.coordinates.latitude,
-          longitude: spot.coordinates.longitude,
-        }));
-
-      if (coordinates.length > 0) {
-        mapRef.current.fitToCoordinates(coordinates, {
-          edgePadding: { top: 100, right: 50, bottom: 50, left: 50 },
-          animated: true,
-        });
-      }
-    }
-  };
-
-  // Get marker color based on risk level
-  const getMarkerColor = (riskLevel) => {
-    switch(riskLevel.flag) {
-      case 'green': return '#10b981';
-      case 'yellow': return '#f59e0b';
-      case 'red': return '#ef4444';
-      default: return '#6b7280';
-    }
-  };
-
-  // Render custom marker
-  const renderMarker = (spot) => {
-    if (!spot.coordinates?.latitude || !spot.coordinates?.longitude) {
-      return null;
-    }
-
-    const riskData = getRiskDataForSkill(spot, selectedSkillLevel);
-    const riskLevel = getRiskLevelForSkill(riskData.score, selectedSkillLevel);
-    const isSelected = selectedSpot?._id === spot._id;
-
-    return (
-      <Marker
-        key={spot._id}
-        coordinate={{
-          latitude: spot.coordinates.latitude,
-          longitude: spot.coordinates.longitude,
-        }}
-        onPress={() => handleMarkerPress(spot)}
-        pinColor={getMarkerColor(riskLevel)}
-        zIndex={isSelected ? 1000 : 1}
-      >
-        <View style={[
-          styles.customMarker,
-          isSelected && styles.customMarkerSelected,
-          { backgroundColor: riskLevel.color }
-        ]}>
-          <Text style={styles.markerText}>{riskData.score.toFixed(1)}</Text>
-        </View>
-      </Marker>
-    );
   };
 
   // Loading state
@@ -209,7 +124,6 @@ export default function RiskAnalyzerScreen({ navigation }) {
     </View>
   );
 
-  // Threshold Banner
   function renderThresholdBanner() {
     const thresholds = getThresholdRanges(selectedSkillLevel);
     const skillInfo = getSkillLevelInfo(selectedSkillLevel);
@@ -242,75 +156,17 @@ export default function RiskAnalyzerScreen({ navigation }) {
     );
   }
 
-  // Map View
   function renderMapView() {
     return (
-      <View style={styles.mapContainer}>
-        <MapView
-          ref={mapRef}
-          provider={PROVIDER_GOOGLE}
-          style={styles.map}
-          initialRegion={{
-            latitude: 7.8731,
-            longitude: 80.7718,
-            latitudeDelta: 3.5,
-            longitudeDelta: 3.5,
-          }}
-          showsUserLocation={true}
-          showsMyLocationButton={false}
-          showsCompass={true}
-          showsScale={true}
-          loadingEnabled={true}
-          loadingBackgroundColor="#e0f2fe"
-          loadingIndicatorColor="#0891b2"
-          onMapReady={fitAllMarkers}
-          mapType="standard"
-        >
-          {surfSpots.map(spot => renderMarker(spot))}
-        </MapView>
-
-        {/* Map Controls */}
-        <TouchableOpacity style={styles.fitMarkersButton} onPress={fitAllMarkers}>
-          <Text style={styles.fitMarkersText}>🎯 Fit All</Text>
-        </TouchableOpacity>
-
-        {/* Selected Spot Card */}
-        {selectedSpot && (
-          <View style={styles.selectedSpotCard}>
-            <View style={styles.selectedSpotHeader}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.selectedSpotName}>{selectedSpot.name}</Text>
-                <Text style={styles.selectedSpotLocation}>📍 {selectedSpot.location}</Text>
-              </View>
-              <TouchableOpacity onPress={() => setSelectedSpot(null)}>
-                <Text style={styles.closeButton}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            {renderSpotRiskInfo(selectedSpot)}
-          </View>
-        )}
-
-        {/* Legend */}
-        <View style={styles.legend}>
-          <Text style={styles.legendTitle}>Risk Levels</Text>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#10b981' }]} />
-            <Text style={styles.legendText}>Low</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#f59e0b' }]} />
-            <Text style={styles.legendText}>Medium</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#ef4444' }]} />
-            <Text style={styles.legendText}>High</Text>
-          </View>
-        </View>
-      </View>
+      <SurfMapView
+        surfSpots={surfSpots}
+        selectedSpot={selectedSpot}
+        selectedSkillLevel={selectedSkillLevel}
+        onSpotSelect={setSelectedSpot}
+      />
     );
   }
 
-  // List View
   function renderListView() {
     const sortedSpots = [...surfSpots].sort((a, b) => {
       const scoreA = getRiskDataForSkill(a, selectedSkillLevel).score;
@@ -323,84 +179,67 @@ export default function RiskAnalyzerScreen({ navigation }) {
         style={styles.listContainer}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        {sortedSpots.map(spot => renderSpotListItem(spot))}
+        {sortedSpots.map(spot => {
+          const riskData = getRiskDataForSkill(spot, selectedSkillLevel);
+          const riskLevel = getRiskLevelForSkill(riskData.score, selectedSkillLevel);
+
+          return (
+            <TouchableOpacity
+              key={spot._id}
+              style={[styles.spotCard, { borderLeftColor: riskLevel.color }]}
+              onPress={() => {
+                setSelectedSpot(spot);
+                setViewMode('map');
+              }}
+            >
+              <View style={styles.spotCardContent}>
+                <View style={styles.spotInfo}>
+                  <Text style={styles.spotName}>{spot.name}</Text>
+                  <Text style={styles.spotLocation}>📍 {spot.location}</Text>
+                  <View style={[styles.riskBadge, { backgroundColor: riskLevel.bgColor }]}>
+                    <Text style={[styles.riskBadgeText, { color: riskLevel.textColor }]}>
+                      {riskLevel.emoji} {riskLevel.level} Risk
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.spotScore}>
+                  <Text style={[styles.scoreValue, { color: riskLevel.color }]}>
+                    {riskData.score.toFixed(1)}
+                  </Text>
+                  <Text style={styles.scoreLabel}>/10</Text>
+                </View>
+              </View>
+              
+              {/* Skill Level Breakdown */}
+              <View style={styles.skillBreakdown}>
+                <Text style={styles.breakdownTitle}>All Skill Levels:</Text>
+                <View style={styles.skillRow}>
+                  {['beginner', 'intermediate', 'advanced'].map(level => {
+                    const levelData = getRiskDataForSkill(spot, level);
+                    const levelRisk = getRiskLevelForSkill(levelData.score, level);
+                    const levelInfo = getSkillLevelInfo(level);
+                    
+                    return (
+                      <View key={level} style={styles.skillItem}>
+                        <Text style={styles.skillEmoji}>{levelInfo.icon}</Text>
+                        <Text style={styles.skillScore} numberOfLines={1}>
+                          {levelData.score.toFixed(1)}
+                        </Text>
+                        <Text style={styles.skillFlag}>{levelRisk.emoji}</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            </TouchableOpacity>
+          );
+        })}
         <View style={{ height: 100 }} />
       </ScrollView>
     );
   }
-
-  // Spot List Item
-  function renderSpotListItem(spot) {
-    const riskData = getRiskDataForSkill(spot, selectedSkillLevel);
-    const riskLevel = getRiskLevelForSkill(riskData.score, selectedSkillLevel);
-
-    return (
-      <TouchableOpacity
-        key={spot._id}
-        style={[styles.spotCard, { borderLeftColor: riskLevel.color }]}
-        onPress={() => {
-          setSelectedSpot(spot);
-          setViewMode('map');
-        }}
-      >
-        <View style={styles.spotCardContent}>
-          <View style={styles.spotInfo}>
-            <Text style={styles.spotName}>{spot.name}</Text>
-            <Text style={styles.spotLocation}>📍 {spot.location}</Text>
-            <View style={[styles.riskBadge, { backgroundColor: riskLevel.bgColor }]}>
-              <Text style={[styles.riskBadgeText, { color: riskLevel.textColor }]}>
-                {riskLevel.emoji} {riskLevel.level} Risk
-              </Text>
-            </View>
-          </View>
-          <View style={styles.spotScore}>
-            <Text style={[styles.scoreValue, { color: riskLevel.color }]}>
-              {riskData.score.toFixed(1)}
-            </Text>
-            <Text style={styles.scoreLabel}>/10</Text>
-          </View>
-        </View>
-      </TouchableOpacity>
-    );
-  }
-
-  // Spot Risk Info
-  function renderSpotRiskInfo(spot) {
-    return (
-      <View style={styles.riskInfoContainer}>
-        {['beginner', 'intermediate', 'advanced'].map(level => {
-          const riskData = getRiskDataForSkill(spot, level);
-          const riskLevel = getRiskLevelForSkill(riskData.score, level);
-          const skillInfo = getSkillLevelInfo(level);
-          const isActive = level === selectedSkillLevel;
-
-          return (
-            <View
-              key={level}
-              style={[
-                styles.riskInfoRow,
-                isActive && { 
-                  backgroundColor: skillInfo.color + '15', 
-                  borderWidth: 2, 
-                  borderColor: skillInfo.color 
-                }
-              ]}
-            >
-              <Text style={styles.skillIcon}>{skillInfo.icon}</Text>
-              <Text style={styles.skillLabel}>{skillInfo.label}</Text>
-              <Text style={styles.riskEmoji}>{riskLevel.emoji}</Text>
-              <Text style={[styles.riskScore, { color: riskLevel.color }]}>
-                {riskData.score.toFixed(1)}
-              </Text>
-            </View>
-          );
-        })}
-      </View>
-    );
-  }
 }
 
-// Styles
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f9fafb' },
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
@@ -427,57 +266,6 @@ const styles = StyleSheet.create({
   toggleText: { fontSize: 14, fontWeight: '600', color: '#6b7280' },
   toggleTextActive: { color: 'white' },
 
-  mapContainer: { flex: 1, position: 'relative' },
-  map: { 
-    ...StyleSheet.absoluteFillObject,
-    width: width,
-    height: '100%',
-  },
-  
-  customMarker: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 3,
-    borderColor: 'white',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 5,
-  },
-  customMarkerSelected: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 4,
-  },
-  markerText: { color: 'white', fontSize: 12, fontWeight: 'bold' },
-  
-  fitMarkersButton: { position: 'absolute', top: 10, right: 10, backgroundColor: 'white', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84, elevation: 5 },
-  fitMarkersText: { fontSize: 13, fontWeight: '600', color: '#0891b2' },
-
-  selectedSpotCard: { position: 'absolute', bottom: 20, left: 16, right: 16, backgroundColor: 'white', borderRadius: 16, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 8 },
-  selectedSpotHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  selectedSpotName: { fontSize: 20, fontWeight: 'bold', color: '#0891b2' },
-  selectedSpotLocation: { fontSize: 13, color: '#6b7280', marginTop: 2 },
-  closeButton: { fontSize: 24, color: '#9ca3af', paddingLeft: 12 },
-
-  riskInfoContainer: { marginTop: 8 },
-  riskInfoRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, marginBottom: 8, borderRadius: 8, backgroundColor: '#f9fafb' },
-  skillIcon: { fontSize: 18, marginRight: 8 },
-  skillLabel: { flex: 1, fontSize: 13, fontWeight: '600', color: '#374151' },
-  riskEmoji: { fontSize: 16, marginRight: 8 },
-  riskScore: { fontSize: 18, fontWeight: 'bold' },
-
-  legend: { position: 'absolute', bottom: 20, left: 10, backgroundColor: 'white', borderRadius: 12, padding: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84, elevation: 5 },
-  legendTitle: { fontSize: 12, fontWeight: 'bold', color: '#374151', marginBottom: 8 },
-  legendItem: { flexDirection: 'row', alignItems: 'center', marginVertical: 3 },
-  legendDot: { width: 12, height: 12, borderRadius: 6, marginRight: 8 },
-  legendText: { fontSize: 11, color: '#6b7280' },
-
   listContainer: { flex: 1, padding: 16 },
   spotCard: { backgroundColor: 'white', borderRadius: 12, padding: 16, marginBottom: 12, borderLeftWidth: 4, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 3 },
   spotCardContent: { flexDirection: 'row', justifyContent: 'space-between' },
@@ -489,6 +277,14 @@ const styles = StyleSheet.create({
   spotScore: { alignItems: 'center', paddingLeft: 12, borderLeftWidth: 1, borderColor: '#e5e7eb' },
   scoreValue: { fontSize: 32, fontWeight: 'bold', lineHeight: 36 },
   scoreLabel: { fontSize: 12, color: '#9ca3af', marginTop: -4 },
+
+  skillBreakdown: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#e5e7eb' },
+  breakdownTitle: { fontSize: 11, fontWeight: '600', color: '#6b7280', marginBottom: 8 },
+  skillRow: { flexDirection: 'row', justifyContent: 'space-around' },
+  skillItem: { alignItems: 'center', flex: 1 },
+  skillEmoji: { fontSize: 18, marginBottom: 4 },
+  skillScore: { fontSize: 14, fontWeight: 'bold', color: '#374151', marginBottom: 2 },
+  skillFlag: { fontSize: 16 },
 
   fabButton: { position: 'absolute', bottom: 24, right: 24, backgroundColor: '#ef4444', width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5 },
   fabIcon: { fontSize: 24 },

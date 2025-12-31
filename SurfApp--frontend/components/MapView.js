@@ -1,15 +1,15 @@
-import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
-import RiskMarker from './RiskMarker';
+import React, { useState, useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import MapView, { Marker } from 'react-native-maps';
 
 /**
- * MapView Component
- * Displays interactive map with surf spot markers and risk indicators
+ * MapView Component WITHOUT Google API Key
+ * Uses default map provider (Apple Maps on iOS, OpenStreetMap-based on Android)
  */
-const SurfMapView = ({ surfSpots, onSpotSelect, selectedSpot }) => {
+const SurfMapView = ({ surfSpots, onSpotSelect, selectedSpot, selectedSkillLevel }) => {
   const mapRef = useRef(null);
-  const [mapType, setMapType] = useState('standard'); // standard, satellite, hybrid
+  const [mapType, setMapType] = useState('standard');
+  const [mapReady, setMapReady] = useState(false);
 
   // Sri Lanka center coordinates
   const INITIAL_REGION = {
@@ -19,15 +19,68 @@ const SurfMapView = ({ surfSpots, onSpotSelect, selectedSpot }) => {
     longitudeDelta: 3.5,
   };
 
+  useEffect(() => {
+    // Fit markers after map is ready and spots are loaded
+    if (mapReady && surfSpots.length > 0) {
+      setTimeout(() => {
+        fitAllMarkers();
+      }, 500);
+    }
+  }, [mapReady, surfSpots]);
+
   /**
-   * Handle marker press - select surf spot and show details
+   * Handle map ready
+   */
+  const handleMapReady = () => {
+    console.log('Map is ready');
+    setMapReady(true);
+  };
+
+  /**
+   * Get risk data for selected skill level
+   */
+  const getRiskDataForSkill = (spot) => {
+    if (!spot || !spot.skillLevelRisks) {
+      return { score: 0, level: 'Unknown', flagColor: 'green' };
+    }
+
+    const skillData = spot.skillLevelRisks[selectedSkillLevel];
+    if (skillData) {
+      return {
+        score: skillData.riskScore || 0,
+        level: skillData.riskLevel || 'Unknown',
+        flagColor: skillData.flagColor || 'green'
+      };
+    }
+
+    // Fallback to overall
+    return {
+      score: spot.riskScore || 0,
+      level: spot.riskLevel || 'Unknown',
+      flagColor: spot.flagColor || 'green'
+    };
+  };
+
+  /**
+   * Get marker color based on flag
+   */
+  const getMarkerColor = (flagColor) => {
+    switch(flagColor) {
+      case 'green': return '#10b981';
+      case 'yellow': return '#f59e0b';
+      case 'red': return '#ef4444';
+      default: return '#6b7280';
+    }
+  };
+
+  /**
+   * Handle marker press
    */
   const handleMarkerPress = (spot) => {
     if (onSpotSelect) {
       onSpotSelect(spot);
     }
 
-    // Animate to selected spot
     if (mapRef.current) {
       mapRef.current.animateToRegion(
         {
@@ -42,7 +95,7 @@ const SurfMapView = ({ surfSpots, onSpotSelect, selectedSpot }) => {
   };
 
   /**
-   * Toggle map type between standard, satellite, and hybrid
+   * Toggle map type
    */
   const toggleMapType = () => {
     const types = ['standard', 'satellite', 'hybrid'];
@@ -52,7 +105,7 @@ const SurfMapView = ({ surfSpots, onSpotSelect, selectedSpot }) => {
   };
 
   /**
-   * Reset map to initial region showing all of Sri Lanka
+   * Reset map view
    */
   const resetMapView = () => {
     if (mapRef.current) {
@@ -61,24 +114,23 @@ const SurfMapView = ({ surfSpots, onSpotSelect, selectedSpot }) => {
   };
 
   /**
-   * Zoom to fit all markers
+   * Fit all markers
    */
   const fitAllMarkers = () => {
     if (mapRef.current && surfSpots.length > 0) {
-      const coordinates = surfSpots.map(spot => ({
-        latitude: spot.coordinates.latitude,
-        longitude: spot.coordinates.longitude,
-      }));
+      const coordinates = surfSpots
+        .filter(spot => spot.coordinates?.latitude && spot.coordinates?.longitude)
+        .map(spot => ({
+          latitude: spot.coordinates.latitude,
+          longitude: spot.coordinates.longitude,
+        }));
 
-      mapRef.current.fitToCoordinates(coordinates, {
-        edgePadding: {
-          top: 50,
-          right: 50,
-          bottom: 50,
-          left: 50,
-        },
-        animated: true,
-      });
+      if (coordinates.length > 0) {
+        mapRef.current.fitToCoordinates(coordinates, {
+          edgePadding: { top: 100, right: 50, bottom: 50, left: 50 },
+          animated: true,
+        });
+      }
     }
   };
 
@@ -87,7 +139,6 @@ const SurfMapView = ({ surfSpots, onSpotSelect, selectedSpot }) => {
       <MapView
         ref={mapRef}
         style={styles.map}
-        provider={PROVIDER_GOOGLE}
         initialRegion={INITIAL_REGION}
         mapType={mapType}
         showsUserLocation={true}
@@ -96,20 +147,42 @@ const SurfMapView = ({ surfSpots, onSpotSelect, selectedSpot }) => {
         showsScale={true}
         loadingEnabled={true}
         loadingBackgroundColor="#e0f2fe"
+        onMapReady={handleMapReady}
+        moveOnMarkerPress={false}
       >
-        {surfSpots.map((spot) => (
-          <RiskMarker
-            key={spot._id}
-            spot={spot}
-            onPress={() => handleMarkerPress(spot)}
-            isSelected={selectedSpot?._id === spot._id}
-          />
-        ))}
+        {surfSpots.map((spot) => {
+          if (!spot.coordinates?.latitude || !spot.coordinates?.longitude) {
+            return null;
+          }
+
+          const riskData = getRiskDataForSkill(spot);
+          const isSelected = selectedSpot?._id === spot._id;
+          const markerColor = getMarkerColor(riskData.flagColor);
+
+          return (
+            <Marker
+              key={spot._id}
+              coordinate={{
+                latitude: spot.coordinates.latitude,
+                longitude: spot.coordinates.longitude,
+              }}
+              onPress={() => handleMarkerPress(spot)}
+              pinColor={markerColor}
+            >
+              <View style={[
+                styles.customMarker,
+                isSelected && styles.customMarkerSelected,
+                { backgroundColor: markerColor }
+              ]}>
+                <Text style={styles.markerText}>{riskData.score.toFixed(1)}</Text>
+              </View>
+            </Marker>
+          );
+        })}
       </MapView>
 
       {/* Map Controls */}
       <View style={styles.controlsContainer}>
-        {/* Map Type Toggle */}
         <TouchableOpacity
           style={styles.controlButton}
           onPress={toggleMapType}
@@ -120,7 +193,6 @@ const SurfMapView = ({ surfSpots, onSpotSelect, selectedSpot }) => {
           </Text>
         </TouchableOpacity>
 
-        {/* Reset View */}
         <TouchableOpacity
           style={styles.controlButton}
           onPress={resetMapView}
@@ -129,7 +201,6 @@ const SurfMapView = ({ surfSpots, onSpotSelect, selectedSpot }) => {
           <Text style={styles.controlButtonText}>🎯</Text>
         </TouchableOpacity>
 
-        {/* Fit All Markers */}
         <TouchableOpacity
           style={styles.controlButton}
           onPress={fitAllMarkers}
@@ -156,12 +227,12 @@ const SurfMapView = ({ surfSpots, onSpotSelect, selectedSpot }) => {
         </View>
       </View>
 
-      {/* Selected Spot Info Banner */}
+      {/* Selected Spot Banner */}
       {selectedSpot && (
         <View style={styles.selectedSpotBanner}>
           <Text style={styles.selectedSpotName}>{selectedSpot.name}</Text>
           <Text style={styles.selectedSpotRisk}>
-            Risk Score: {selectedSpot.riskScore}/10
+            Risk Score: {getRiskDataForSkill(selectedSpot).score.toFixed(1)}/10
           </Text>
         </View>
       )}
@@ -176,6 +247,31 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  customMarker: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: 'white',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 5,
+  },
+  customMarkerSelected: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 4,
+  },
+  markerText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   controlsContainer: {
     position: 'absolute',

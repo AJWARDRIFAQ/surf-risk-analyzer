@@ -2,12 +2,25 @@ const express = require('express');
 const router = express.Router();
 const SurfSpot = require('../models/SurfSpot');
 
-// Get all surf spots with risk scores
+// Get all surf spots with full risk data including skill levels
 router.get('/', async (req, res) => {
   try {
+    console.log('📡 Fetching all surf spots...');
+    
     const surfSpots = await SurfSpot.find()
-      .select('name location coordinates riskScore riskLevel flagColor lastUpdated totalIncidents')
+      .select('name location coordinates riskScore riskLevel flagColor lastUpdated totalIncidents skillLevelRisks')
       .sort({ name: 1 });
+
+    console.log(`✅ Found ${surfSpots.length} surf spots`);
+    
+    // Log first spot for debugging
+    if (surfSpots.length > 0) {
+      console.log('📊 First spot:', {
+        name: surfSpots[0].name,
+        hasSkillRisks: !!surfSpots[0].skillLevelRisks,
+        skillLevels: surfSpots[0].skillLevelRisks ? Object.keys(surfSpots[0].skillLevelRisks) : []
+      });
+    }
 
     res.json({
       success: true,
@@ -15,6 +28,7 @@ router.get('/', async (req, res) => {
       data: surfSpots
     });
   } catch (error) {
+    console.error('❌ Error fetching surf spots:', error);
     res.status(500).json({ 
       success: false, 
       message: 'Error fetching surf spots', 

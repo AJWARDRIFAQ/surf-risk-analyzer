@@ -15,6 +15,7 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     console.log(`📡 API Request: ${config.method?.toUpperCase()} ${config.url}`);
+    console.log(`📡 Full URL: ${config.baseURL}${config.url}`);
     return config;
   },
   (error) => {
@@ -27,19 +28,21 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => {
     console.log(`✅ API Response: ${response.config.url}`, response.status);
+    console.log(`✅ Data received:`, response.data?.data?.length || 0, 'items');
     return response;
   },
   (error) => {
     console.error('❌ API Error:', error.message);
+    console.error('❌ Error details:', error.response?.data || error);
     
     if (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK') {
       Alert.alert(
         'Connection Error',
         `Cannot connect to server at ${API_BASE_URL}.\n\n` +
         'Please ensure:\n' +
-        '1. Backend server is running\n' +
+        '1. Backend server is running on port 5000\n' +
         '2. You are on the same network\n' +
-        '3. API_BASE_URL is configured correctly',
+        '3. Check API_BASE_URL in constants.js',
         [{ text: 'OK' }]
       );
     }
@@ -48,40 +51,39 @@ api.interceptors.response.use(
   }
 );
 
-// ==================== API METHODS ====================
-
 /**
- * Check server health and get connection info
- */
-export const checkServerHealth = async () => {
-  try {
-    const response = await api.get(ENDPOINTS.HEALTH);
-    return response.data;
-  } catch (error) {
-    throw new Error(`Server health check failed: ${error.message}`);
-  }
-};
-
-/**
- * Get server network information
- */
-export const getServerInfo = async () => {
-  try {
-    const response = await api.get(ENDPOINTS.SERVER_INFO);
-    return response.data;
-  } catch (error) {
-    throw new Error(`Failed to get server info: ${error.message}`);
-  }
-};
-
-/**
- * Get all surf spots
+ * Get all surf spots with skill-level risk data
  */
 export const getSurfSpots = async () => {
   try {
+    console.log('🌊 Fetching surf spots...');
     const response = await api.get(ENDPOINTS.SURF_SPOTS);
+    
+    // Validate response structure
+    if (!response.data) {
+      throw new Error('No data received from server');
+    }
+
+    if (!response.data.success) {
+      throw new Error(response.data.message || 'API request failed');
+    }
+
+    const spots = response.data.data || [];
+    console.log(`✅ Successfully loaded ${spots.length} surf spots`);
+    
+    // Log first spot structure for debugging
+    if (spots.length > 0) {
+      console.log('📊 First spot structure:', {
+        name: spots[0].name,
+        hasCoordinates: !!spots[0].coordinates,
+        hasSkillRisks: !!spots[0].skillLevelRisks,
+        skillLevels: spots[0].skillLevelRisks ? Object.keys(spots[0].skillLevelRisks) : []
+      });
+    }
+
     return response.data;
   } catch (error) {
+    console.error('💥 Error in getSurfSpots:', error.message);
     throw new Error(`Failed to fetch surf spots: ${error.message}`);
   }
 };
@@ -115,26 +117,16 @@ export const submitHazardReport = async (formData) => {
 };
 
 /**
- * Get hazard reports for a surf spot
+ * Check server health
  */
-export const getHazardReportsBySpot = async (spotId) => {
+export const checkServerHealth = async () => {
   try {
-    const response = await api.get(`${ENDPOINTS.HAZARD_REPORTS}/spot/${spotId}`);
+    const response = await api.get(ENDPOINTS.HEALTH);
+    console.log('💚 Server health:', response.data);
     return response.data;
   } catch (error) {
-    throw new Error(`Failed to fetch hazard reports: ${error.message}`);
-  }
-};
-
-/**
- * Get incidents for a surf spot
- */
-export const getIncidentsBySpot = async (spotName) => {
-  try {
-    const response = await api.get(`${ENDPOINTS.INCIDENTS}/spot/${spotName}`);
-    return response.data;
-  } catch (error) {
-    throw new Error(`Failed to fetch incidents: ${error.message}`);
+    console.error('💔 Server health check failed:', error.message);
+    throw new Error(`Server health check failed: ${error.message}`);
   }
 };
 
@@ -143,8 +135,12 @@ export const getIncidentsBySpot = async (spotName) => {
  */
 export const testConnection = async () => {
   try {
+    console.log('🔍 Testing API connection...');
+    console.log('🔍 API_BASE_URL:', API_BASE_URL);
+    
     const health = await checkServerHealth();
     console.log('🎉 API Connection successful!', health);
+    
     return { success: true, data: health };
   } catch (error) {
     console.error('💥 API Connection failed:', error.message);
