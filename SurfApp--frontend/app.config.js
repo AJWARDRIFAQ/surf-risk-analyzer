@@ -14,16 +14,34 @@ export default {
     assetBundlePatterns: [
       "**/*"
     ],
+    plugins: [
+      [
+        "expo-image-picker",
+        {
+          photosPermission: "Allow $(PRODUCT_NAME) to access your photos.",
+          cameraPermission: "Allow $(PRODUCT_NAME) to access your camera.",
+        }
+      ]
+    ],
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.surfrisks.app"
+      bundleIdentifier: "com.surfrisks.app",
+      infoPlist: {
+        NSCameraUsageDescription: "This app needs camera access to report hazards with photos",
+        NSPhotoLibraryUsageDescription: "This app needs photo library access to upload hazard photos"
+      }
     },
     android: {
       adaptiveIcon: {
         foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#ffffff"
       },
-      package: "com.surfrisks.app"
+      package: "com.surfrisks.app",
+      permissions: [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
     },
     web: {
       favicon: "./assets/favicon.png"

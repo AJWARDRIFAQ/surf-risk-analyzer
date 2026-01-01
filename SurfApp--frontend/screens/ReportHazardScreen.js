@@ -11,7 +11,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
+import * as ImagePicker from 'expo-image-picker';
 import { hazardReportsAPI, surfSpotsAPI } from '../services/api';
 
 const HAZARD_TYPES = [
@@ -65,18 +65,65 @@ export default function ReportHazardScreen({ navigation }) {
     );
   };
 
-  const openCamera = () => {
-    launchCamera({ mediaType: 'mixed', quality: 0.8 }, handleMediaResponse);
+  const openCamera = async () => {
+    try {
+      // Request camera permission
+      const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
+      if (cameraStatus !== 'granted') {
+        Alert.alert('Permission Denied', 'Camera permission is required to take photos');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.All,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+        allowsMultiple: false,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        setMediaFiles([...mediaFiles, {
+          uri: asset.uri,
+          type: asset.type || (asset.uri.includes('mp4') ? 'video' : 'image'),
+          fileName: asset.fileName || `photo_${Date.now()}.jpg`,
+        }]);
+      }
+    } catch (error) {
+      console.error('Camera error:', error);
+      Alert.alert('Error', 'Failed to open camera. Please try again.');
+    }
   };
 
-  const openGallery = () => {
-    launchImageLibrary({ mediaType: 'mixed', quality: 0.8, selectionLimit: 5 }, handleMediaResponse);
-  };
+  const openGallery = async () => {
+    try {
+      // Request media library permission
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Photo library permission is required to select images');
+        return;
+      }
 
-  const handleMediaResponse = (response) => {
-    if (response.didCancel || response.errorCode) return;
-    if (response.assets) {
-      setMediaFiles([...mediaFiles, ...response.assets]);
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.All,
+        allowsEditing: false,
+        quality: 0.8,
+        allowsMultiple: true,
+        selectionLimit: 5,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const newAssets = result.assets.map((asset, index) => ({
+          uri: asset.uri,
+          type: asset.type || (asset.uri.includes('mp4') ? 'video' : 'image'),
+          fileName: asset.fileName || `media_${Date.now()}_${index}.jpg`,
+        }));
+        setMediaFiles([...mediaFiles, ...newAssets]);
+      }
+    } catch (error) {
+      console.error('Gallery error:', error);
+      Alert.alert('Error', 'Failed to open gallery. Please try again.');
     }
   };
 
@@ -89,6 +136,11 @@ export default function ReportHazardScreen({ navigation }) {
   const handleSubmit = async () => {
     if (!formData.surfSpotId || !formData.description) {
       Alert.alert('Error', 'Please fill in all required fields');
+      return;
+    }
+
+    if (mediaFiles.length === 0) {
+      Alert.alert('Error', 'Please add at least one photo or video to verify the hazard');
       return;
     }
 
@@ -231,11 +283,11 @@ export default function ReportHazardScreen({ navigation }) {
 
         {/* Media Upload */}
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Photos/Videos (Optional)</Text>
-          <Text style={styles.helpText}>Visual evidence helps verify the hazard</Text>
+          <Text style={styles.label}>Photos/Videos *</Text>
+          <Text style={styles.helpText}>Visual evidence is required to verify the hazard</Text>
 
           <TouchableOpacity style={styles.uploadButton} onPress={pickImage}>
-            <Text style={styles.uploadButtonText}>📷 Add Media</Text>
+            <Text style={styles.uploadButtonText}>📷 Add Media {mediaFiles.length > 0 ? `(${mediaFiles.length}/5)` : ''}</Text>
           </TouchableOpacity>
 
           {/* Media Preview */}

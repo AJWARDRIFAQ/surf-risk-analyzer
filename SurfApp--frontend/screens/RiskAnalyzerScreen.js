@@ -120,7 +120,8 @@ export default function RiskAnalyzerScreen({ navigation }) {
       <View style={styles.bottomBanner}>
         <Text style={styles.bottomBannerTitle}>Surf Risk Analyzer</Text>
         <Text style={styles.bottomBannerText}>
-          Risk scores updated daily based on historical incidents and current hazard reports
+          Risk scores updated daily based on historical incidents and current hazard reports.
+      
         </Text>
       </View>
 
