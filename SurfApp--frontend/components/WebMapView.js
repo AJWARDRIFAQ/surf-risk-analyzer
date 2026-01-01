@@ -100,7 +100,7 @@ const WebMapView = ({ surfSpots, onSpotSelect, selectedSpot, selectedSkillLevel 
             
             // Add OpenStreetMap tiles
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-              attribution: '© OpenStreetMap contributors',
+              attribution: '',
               maxZoom: 19,
               minZoom: 6
             }).addTo(map);
