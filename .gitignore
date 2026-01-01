@@ -4,8 +4,6 @@ node_modules/
 .pnp.js
 venv/
 env/
-.env
-.env.local
 .env.*.local
 
 # Production builds
@@ -57,3 +55,4 @@ lerna-debug.log*
 
 # ZIPs
 *.zip
+config.bat
