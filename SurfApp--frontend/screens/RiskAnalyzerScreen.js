@@ -35,11 +35,9 @@ export default function RiskAnalyzerScreen({ navigation }) {
       setError(null);
       
       const response = await getSurfSpots();
-      // response has structure: { success: true, data: [...], count: ... }
       const spots = response.data || [];
       
       console.log('✅ Loaded', spots.length, 'surf spots');
-      console.log('📊 Spots data:', spots);
       setSurfSpots(spots);
       
     } catch (err) {
@@ -92,6 +90,9 @@ export default function RiskAnalyzerScreen({ navigation }) {
       {/* Threshold Banner */}
       {renderThresholdBanner()}
 
+      {/* Safety Notice */}
+      {renderSafetyNotice()}
+
       {/* View Toggle */}
       <View style={styles.viewToggle}>
         <TouchableOpacity
@@ -114,6 +115,14 @@ export default function RiskAnalyzerScreen({ navigation }) {
 
       {/* Map or List View */}
       {viewMode === 'map' ? renderMapView() : renderListView()}
+
+      {/* Bottom Info Banner */}
+      <View style={styles.bottomBanner}>
+        <Text style={styles.bottomBannerTitle}>Surf Risk Analyzer</Text>
+        <Text style={styles.bottomBannerText}>
+          Risk scores updated daily based on historical incidents and current hazard reports
+        </Text>
+      </View>
 
       {/* Floating Report Button */}
       <TouchableOpacity 
@@ -158,14 +167,33 @@ export default function RiskAnalyzerScreen({ navigation }) {
     );
   }
 
+  // NEW: Safety Notice Component
+  function renderSafetyNotice() {
+    return (
+      <View style={styles.safetyNotice}>
+        <View style={styles.safetyNoticeHeader}>
+          <View style={styles.safetyIconContainer}>
+            <Text style={styles.safetyIcon}>ℹ️</Text>
+          </View>
+          <Text style={styles.safetyNoticeTitle}>Safety Notice</Text>
+        </View>
+        <Text style={styles.safetyNoticeText}>
+          Always check current conditions before surfing. Risk scores are based on historical data.
+        </Text>
+      </View>
+    );
+  }
+
   function renderMapView() {
     return (
-      <WebMapView
-        surfSpots={surfSpots}
-        selectedSpot={selectedSpot}
-        selectedSkillLevel={selectedSkillLevel}
-        onSpotSelect={setSelectedSpot}
-      />
+      <View style={{ flex: 1 }}>
+        <WebMapView
+          surfSpots={surfSpots}
+          selectedSpot={selectedSpot}
+          selectedSkillLevel={selectedSkillLevel}
+          onSpotSelect={setSelectedSpot}
+        />
+      </View>
     );
   }
 
@@ -240,6 +268,45 @@ const styles = StyleSheet.create({
   thresholdRange: { fontSize: 10, color: '#6b7280' },
   thresholdDivider: { width: 1, height: 40, backgroundColor: '#e5e7eb' },
 
+  // NEW: Safety Notice Styles
+  safetyNotice: {
+    backgroundColor: '#dbeafe',
+    borderLeftWidth: 4,
+    borderLeftColor: '#3b82f6',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#bfdbfe',
+  },
+  safetyNoticeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  safetyIconContainer: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#3b82f6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  safetyIcon: {
+    fontSize: 14,
+  },
+  safetyNoticeTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1e40af',
+  },
+  safetyNoticeText: {
+    fontSize: 12,
+    color: '#1e3a8a',
+    lineHeight: 18,
+    paddingLeft: 32,
+  },
+
   viewToggle: { flexDirection: 'row', padding: 12, backgroundColor: 'white', borderBottomWidth: 1, borderColor: '#e5e7eb' },
   toggleButton: { flex: 1, paddingVertical: 10, paddingHorizontal: 16, marginHorizontal: 4, borderRadius: 8, backgroundColor: '#f3f4f6', alignItems: 'center' },
   toggleButtonActive: { backgroundColor: '#0891b2' },
@@ -258,7 +325,29 @@ const styles = StyleSheet.create({
   scoreValue: { fontSize: 32, fontWeight: 'bold', lineHeight: 36 },
   scoreLabel: { fontSize: 12, color: '#9ca3af', marginTop: -4 },
 
-  fabButton: { position: 'absolute', bottom: 24, right: 24, backgroundColor: '#ef4444', width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5 },
+  fabButton: { position: 'absolute', bottom: 84, right: 24, backgroundColor: '#ef4444', width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5 },
   fabIcon: { fontSize: 24 },
   fabText: { color: 'white', fontSize: 10, fontWeight: '600', marginTop: 2 },
+
+  // Bottom Banner Styles
+  bottomBanner: {
+    backgroundColor: '#f3f4f6',
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  bottomBannerTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#374151',
+    marginBottom: 4,
+  },
+  bottomBannerText: {
+    fontSize: 11,
+    color: '#6b7280',
+    textAlign: 'center',
+    lineHeight: 16,
+  },
 });

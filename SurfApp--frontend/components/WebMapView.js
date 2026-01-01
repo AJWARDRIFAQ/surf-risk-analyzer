@@ -224,23 +224,6 @@ const WebMapView = ({ surfSpots, onSpotSelect, selectedSpot, selectedSkillLevel 
         allowFileAccess={true}
       />
 
-      {/* Legend */}
-      <View style={styles.legendContainer}>
-        <Text style={styles.legendTitle}>Risk Levels</Text>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: '#10b981' }]} />
-          <Text style={styles.legendText}>Low</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: '#f59e0b' }]} />
-          <Text style={styles.legendText}>Medium</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: '#ef4444' }]} />
-          <Text style={styles.legendText}>High</Text>
-        </View>
-      </View>
-
       {/* Selected Spot Banner */}
       {selectedSpot && (
         <View style={styles.selectedSpotBanner}>
@@ -284,40 +267,6 @@ const styles = StyleSheet.create({
   noSpotsText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#6b7280',
-  },
-  legendContainer: {
-    position: 'absolute',
-    bottom: 20,
-    left: 10,
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  legendTitle: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#374151',
-    marginBottom: 8,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 3,
-  },
-  legendDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 8,
-  },
-  legendText: {
-    fontSize: 11,
     color: '#6b7280',
   },
   selectedSpotBanner: {
