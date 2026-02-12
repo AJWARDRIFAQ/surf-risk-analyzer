@@ -1,9 +1,10 @@
 const HazardReport = require('../models/HazardReport');
 const SurfSpot = require('../models/SurfSpot');
 const User = require('../models/User');
-const axios = require('axios');
-const fs = require('fs');
-const FormData = require('form-data');
+const path = require('path');
+
+// Import Python runner utility (executes ML scripts directly)
+const { analyzeHazardImage, updateAllRiskScores } = require('../utils/pythonRunner');
 
 exports.submitHazardReport = async (req, res) => {
   try {
@@ -35,26 +36,22 @@ exports.submitHazardReport = async (req, res) => {
       media: mediaFiles
     });
 
-    // If media exists, send to ML model for analysis
+    // If media exists, analyze using Python ML scripts directly
     if (mediaFiles.length > 0) {
       try {
-        const formData = new FormData();
-        mediaFiles.forEach(media => {
-          if (media.type === 'image') {
-            formData.append('images', fs.createReadStream(`uploads/hazards/${media.filename}`));
-          }
-        });
-        formData.append('hazard_type', hazardType);
-
-        const mlResponse = await axios.post(
-          `${process.env.ML_API_URL}/analyze-hazard`,
-          formData,
-          { headers: formData.getHeaders() }
-        );
-
-        hazardReport.analysisResult = mlResponse.data;
+        // Find first image file for analysis
+        const imageFile = mediaFiles.find(m => m.type === 'image');
+        if (imageFile) {
+          const imagePath = path.join(__dirname, '../uploads/hazards', imageFile.filename);
+          console.log('🤖 Running ML analysis on:', imagePath);
+          
+          // Call Python script directly (no Flask server needed)
+          const analysisResult = await analyzeHazardImage(imagePath, hazardType);
+          hazardReport.analysisResult = analysisResult;
+          console.log('✅ ML Analysis result:', analysisResult);
+        }
       } catch (mlError) {
-        console.error('ML analysis error:', mlError.message);
+        console.error('⚠️ ML analysis error (non-blocking):', mlError.message);
         // Continue even if ML fails
       }
     }
@@ -68,13 +65,13 @@ exports.submitHazardReport = async (req, res) => {
     }
     await surfSpot.save();
 
-    // Trigger risk score recalculation
+    // Trigger risk score recalculation using Python script directly
     try {
-      await axios.post(`${process.env.ML_API_URL}/update-risk-score`, {
-        surf_spot_id: surfSpotId
-      });
+      console.log('🔄 Updating risk scores...');
+      await updateAllRiskScores();
+      console.log('✅ Risk scores updated');
     } catch (error) {
-      console.error('Risk score update error:', error.message);
+      console.error('⚠️ Risk score update error (non-blocking):', error.message);
     }
 
     // Update user reputation
