@@ -28,7 +28,12 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => {
     console.log(`✅ API Response: ${response.config.url}`, response.status);
-    console.log(`✅ Data received:`, response.data?.data?.length || 0, 'items');
+    // Better logging for different response types
+    if (Array.isArray(response.data?.data)) {
+      console.log(`✅ Data received: ${response.data.data.length} items`);
+    } else if (response.data?.success) {
+      console.log(`✅ Operation successful:`, response.data.message || 'OK');
+    }
     return response;
   },
   (error) => {
@@ -105,10 +110,14 @@ export const getSurfSpotById = async (spotId) => {
  */
 export const submitHazardReport = async (formData) => {
   try {
+    // For React Native multipart/form-data, we need to:
+    // 1. NOT set Content-Type header (let axios/fetch set it with boundary)
+    // 2. Use transformRequest to prevent axios from trying to serialize FormData
     const response = await api.post(ENDPOINTS.HAZARD_REPORTS, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      transformRequest: (data) => data, // Prevent axios from transforming FormData
     });
     return response.data;
   } catch (error) {

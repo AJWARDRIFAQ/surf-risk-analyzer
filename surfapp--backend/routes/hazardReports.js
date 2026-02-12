@@ -2,14 +2,32 @@ const express = require('express');
 const router = express.Router();
 const HazardReport = require('../models/HazardReport');
 const SurfSpot = require('../models/SurfSpot');
-const multer = require('../config/multer');
+const upload = require('../config/multer');
 const axios = require('axios');
 const FormData = require('form-data');
 const fs = require('fs');
 
+// Multer error handling middleware
+const handleMulterUpload = (req, res, next) => {
+  upload.array('media', 5)(req, res, (err) => {
+    if (err) {
+      console.error('❌ Multer error:', err.message);
+      return res.status(400).json({
+        success: false,
+        message: `File upload error: ${err.message}`
+      });
+    }
+    next();
+  });
+};
+
 // Submit hazard report (NO AUTHENTICATION REQUIRED)
-router.post('/', multer.array('media', 5), async (req, res) => {
+router.post('/', handleMulterUpload, async (req, res) => {
   try {
+    console.log('📥 Received hazard report request');
+    console.log('📥 Body:', req.body);
+    console.log('📥 Files:', req.files?.length || 0, 'files');
+    
     const { surfSpotId, hazardType, description, severity, reporterName } = req.body;
     
     // Verify surf spot exists
@@ -22,11 +40,11 @@ router.post('/', multer.array('media', 5), async (req, res) => {
     }
 
     // Process uploaded media
-    const mediaFiles = req.files.map(file => ({
+    const mediaFiles = req.files ? req.files.map(file => ({
       type: file.mimetype.startsWith('image') ? 'image' : 'video',
       url: `/uploads/hazards/${file.filename}`,
       filename: file.filename
-    }));
+    })) : [];
 
     // Create hazard report
     const hazardReport = new HazardReport({

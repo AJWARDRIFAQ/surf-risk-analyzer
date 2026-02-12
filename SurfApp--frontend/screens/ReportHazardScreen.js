@@ -75,7 +75,7 @@ export default function ReportHazardScreen({ navigation }) {
       }
 
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.All,
+        mediaTypes: ['images', 'videos'],
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.8,
@@ -106,7 +106,7 @@ export default function ReportHazardScreen({ navigation }) {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.All,
+        mediaTypes: ['images', 'videos'],
         allowsEditing: false,
         quality: 0.8,
         allowsMultiple: true,
@@ -155,10 +155,24 @@ export default function ReportHazardScreen({ navigation }) {
       formDataToSend.append('reporterName', formData.reporterName || 'Anonymous');
 
       mediaFiles.forEach((media, index) => {
+        // Get proper MIME type for the file
+        const getMimeType = (uri, type) => {
+          if (type === 'video' || uri.includes('.mp4') || uri.includes('.mov')) {
+            return 'video/mp4';
+          }
+          if (uri.includes('.png')) {
+            return 'image/png';
+          }
+          return 'image/jpeg';
+        };
+
+        const mimeType = getMimeType(media.uri, media.type);
+        const fileName = media.fileName || `media_${index}.${mimeType.includes('video') ? 'mp4' : 'jpg'}`;
+        
         formDataToSend.append('media', {
           uri: media.uri,
-          type: media.type,
-          name: media.fileName || `media_${index}.jpg`,
+          type: mimeType,
+          name: fileName,
         });
       });
 
@@ -166,8 +180,13 @@ export default function ReportHazardScreen({ navigation }) {
 
       if (response.success) {
         Alert.alert(
-          'Success',
-          'Hazard report submitted! Risk scores will be updated.',
+          '✅ Report Submitted Successfully',
+          'Thank you for helping keep surfers safe!\n\n' +
+          '🤖 Our system will now:\n' +
+          '• Analyze your uploaded media\n' +
+          '• Verify the hazard type\n' +
+          '• Update risk scores for this surf spot\n\n' +
+          '',
           [{ text: 'OK', onPress: () => navigation.goBack() }]
         );
       }
